@@ -1,72 +1,88 @@
-export class SoundSystem {
-  public static readonly MUSIC_PLAYLIST: string[] = [
-    '/music/Low_Tide_Vigil.mp3'
-  ];
+export type MusicCue = 'menu' | 'level1' | 'level2' | 'level3' | 'survival';
 
+const MUSIC_TRACKS: Record<MusicCue, string> = {
+  menu: '/music/menu_paper_saints.mp3',
+  level1: '/music/Low_Tide_Vigil.mp3',
+  level2: '/music/dixon_ward.mp3',
+  level3: '/music/empty_hall.mp3',
+  survival: '/music/horde_clock.mp3'
+};
+
+const MUSIC_FALLBACK = '/music/Low_Tide_Vigil.mp3';
+
+export class SoundSystem {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private lastGroanTime = 0;
 
   private musicAudio: HTMLAudioElement | null = null;
-  private musicInitialized = false;
   private musicAutoplayRetryAttached = false;
-  private musicFailed = false;
+  private currentMusicSrc: string | null = null;
+  private requestedMusicSrc: string | null = null;
+  private readonly missingMusic = new Set<string>();
 
   constructor() {
-    this.startBackgroundMusic();
+    this.playCue('menu');
   }
 
-  public startBackgroundMusic(): void {
-    if (this.musicInitialized || this.musicFailed) return;
-    this.musicInitialized = true;
+  public playCue(cue: MusicCue): void {
+    let src = MUSIC_TRACKS[cue];
+    if (this.missingMusic.has(src)) {
+      src = MUSIC_FALLBACK;
+    }
+    if (this.currentMusicSrc === src && this.musicAudio) {
+      if (this.musicAudio.paused) {
+        this.musicAudio.play().catch(() => {
+          this.attachOneTimeMusicUnlock();
+        });
+      }
+      return;
+    }
+    this.beginTrack(src);
+  }
 
-    const list = SoundSystem.MUSIC_PLAYLIST;
-    if (!list.length) return;
-
-    const chosenTrack = list[Math.floor(Math.random() * list.length)];
+  private beginTrack(src: string): void {
     try {
-      const audio = new Audio();
-      audio.loop = true;
-      audio.volume = 0.35;
-      audio.preload = 'auto';
+      if (!this.musicAudio) {
+        const audio = new Audio();
+        audio.loop = true;
+        audio.volume = 0.35;
+        audio.preload = 'auto';
+        audio.addEventListener('error', () => {
+          const failed = this.requestedMusicSrc;
+          if (!failed || failed === MUSIC_FALLBACK) return;
+          this.missingMusic.add(failed);
+          if (this.currentMusicSrc !== MUSIC_FALLBACK) {
+            this.beginTrack(MUSIC_FALLBACK);
+          }
+        });
+        this.musicAudio = audio;
+      }
 
-      let triedMp3Fallback = false;
-      audio.addEventListener('error', () => {
-        if (!triedMp3Fallback && chosenTrack.endsWith('.ogg')) {
-          triedMp3Fallback = true;
-          audio.src = chosenTrack.replace(/\.ogg$/i, '.mp3');
-          audio.play().catch(() => {
-            // Ignore autoplay or missing fallback error
-          });
-        } else {
-          this.musicFailed = true;
-        }
-      });
-
-      audio.src = chosenTrack;
-      this.musicAudio = audio;
-
-      const playPromise = audio.play();
+      this.requestedMusicSrc = src;
+      this.currentMusicSrc = src;
+      this.musicAudio.src = src;
+      const playPromise = this.musicAudio.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
           this.attachOneTimeMusicUnlock();
         });
       }
     } catch {
-      this.musicFailed = true;
+      // Brak pliku albo blokada autoplay nie może wywalić gry.
     }
   }
 
   private attachOneTimeMusicUnlock(): void {
-    if (this.musicAutoplayRetryAttached || this.musicFailed) return;
+    if (this.musicAutoplayRetryAttached) return;
     this.musicAutoplayRetryAttached = true;
 
     const unlock = () => {
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
-      if (this.musicFailed || !this.musicAudio) return;
+      if (!this.musicAudio) return;
       this.musicAudio.play().catch(() => {
-        // Do not retry a second time
+        // Drugi raz nie próbujemy.
       });
     };
 
@@ -91,7 +107,11 @@ export class SoundSystem {
 
   public init(): void {
     this.ensureContext();
-    this.startBackgroundMusic();
+    if (this.musicAudio && this.musicAudio.paused) {
+      this.musicAudio.play().catch(() => {
+        this.attachOneTimeMusicUnlock();
+      });
+    }
   }
 
   private createNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {

@@ -812,6 +812,7 @@ export class Game {
     );
     this.ui.setHighScoreTab(this.currentLevel, this.upgrades);
     this.ui.setHudVisible(true);
+    this.sound.playCue('menu');
     this.ui.showMainMenu(this.upgrades);
     this.syncPadMenuHighlight();
 
@@ -825,6 +826,7 @@ export class Game {
   private startMatch(twoPlayer: boolean, level: LevelId = 1): void {
     this.isTwoPlayer = twoPlayer;
     this.currentLevel = level;
+    this.sound.playCue(level === 3 ? 'level3' : level === 2 ? 'level2' : 'level1');
     this.activePlayerNum = 1;
     this.player1Summary = null;
     this.ui.hideMainMenu();

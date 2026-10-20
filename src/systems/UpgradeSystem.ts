@@ -788,6 +788,7 @@ export class UpgradeSystem {
   public async claimDailyRewardOnline(): Promise<
     | { status: 'claimed'; coins: number; streak: number }
     | { status: 'already_claimed'; streak: number }
+    | { status: 'unavailable' }
     | { status: 'offline' }
   > {
     const id = this.getOrCreatePlayerId();
@@ -799,7 +800,7 @@ export class UpgradeSystem {
       });
 
       if (!response.ok) {
-        return { status: 'offline' };
+        return { status: 'unavailable' };
       }
 
       const data = (await response.json()) as {
