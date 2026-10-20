@@ -17,7 +17,56 @@ export type SkillNodeId =
   | 'carnage_spikes';
 
 export type DogModId = 'kiel' | 'warta' | 'trop';
-export type LevelId = 1 | 2;
+export type LevelId = 1 | 2 | 3;
+export type DifficultyId = 'easy' | 'normal' | 'hard';
+
+export interface DifficultyConfig {
+  id: DifficultyId;
+  name: string;
+  desc: string;
+  zombieHpMult: number;
+  zombieDmgMult: number;
+  playerDmgMult: number;
+  startAmmoMult: number;
+  ammoDropChanceMult: number;
+  medkitHealMult: number;
+}
+
+export const DIFFICULTY_CONFIGS: Record<DifficultyId, DifficultyConfig> = {
+  easy: {
+    id: 'easy',
+    name: 'ŁATWY',
+    desc: 'Obrażenia gracza -15%, skromny zapas amunicji na start, ciasny start od pierwszej ulicy.',
+    zombieHpMult: 1.05,
+    zombieDmgMult: 1.05,
+    playerDmgMult: 0.85,
+    startAmmoMult: 0.65,
+    ammoDropChanceMult: 0.7,
+    medkitHealMult: 1.0
+  },
+  normal: {
+    id: 'normal',
+    name: 'NORMALNY (DOMYŚLNY)',
+    desc: 'Zombie 1.5× HP i 1.35× obrażeń. Gracz 0.72× obrażeń, mniej naboi na start, rzadkie dropy.',
+    zombieHpMult: 1.5,
+    zombieDmgMult: 1.35,
+    playerDmgMult: 0.72,
+    startAmmoMult: 0.45,
+    ammoDropChanceMult: 0.48,
+    medkitHealMult: 0.9
+  },
+  hard: {
+    id: 'hard',
+    name: 'TRUDNY',
+    desc: 'Zombie 1.95× HP i 1.65× obrażeń. Gracz 0.58× obrażeń, garść naboi, słabsze apteczki.',
+    zombieHpMult: 1.95,
+    zombieDmgMult: 1.65,
+    playerDmgMult: 0.58,
+    startAmmoMult: 0.25,
+    ammoDropChanceMult: 0.35,
+    medkitHealMult: 0.55
+  }
+};
 
 export interface DogModDef {
   id: DogModId;
@@ -49,6 +98,7 @@ export interface SkillNodeDef {
   id: SkillNodeId;
   branch: SkillBranchId;
   name: string;
+  icon: string;
   cost: number;
   requires?: SkillNodeId;
   effect: string;
@@ -83,19 +133,21 @@ export interface HighScoreEntry {
 export const SKILL_BRANCHES: SkillBranchDef[] = [
   {
     id: 'romero',
-    title: 'Gałąź Romero — „Zdejmij głowę albo zniszcz mózg”',
+    title: 'Romero',
     nodes: [
       {
         id: 'barbara',
         branch: 'romero',
         name: 'Barbara',
+        icon: '👁',
         cost: 450,
         effect: '+8% szansy na trafienie krytyczne.'
       },
       {
         id: 'dawn',
         branch: 'romero',
-        name: 'Świt żywych trupów',
+        name: 'Świt',
+        icon: '☀',
         cost: 700,
         requires: 'barbara',
         effect: 'Na etapach 1–2 cięcia zadają +20% obrażeń.'
@@ -104,6 +156,7 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'bub',
         branch: 'romero',
         name: 'Bub',
+        icon: '💀',
         cost: 900,
         requires: 'dawn',
         effect: 'Krytyk odrzuca mocniej.'
@@ -112,12 +165,13 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
   },
   {
     id: 'twd',
-    title: 'Gałąź The Walking Dead',
+    title: 'The Walking Dead',
     nodes: [
       {
         id: 'lucille',
         branch: 'twd',
         name: 'Lucille',
+        icon: '🏏',
         cost: 450,
         effect: 'Rzeź ma większy odrzut.'
       },
@@ -125,6 +179,7 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'dixon',
         branch: 'twd',
         name: 'Szpital Dixona',
+        icon: '🏥',
         cost: 700,
         requires: 'lucille',
         effect: 'Apteczki leczą +15 HP.'
@@ -133,6 +188,7 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'rick',
         branch: 'twd',
         name: 'Rick',
+        icon: '🤠',
         cost: 900,
         requires: 'dixon',
         effect: '+12 amunicji na start rundy i strzały lekko mocniejsze.'
@@ -141,20 +197,22 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'dog',
         branch: 'twd',
         name: 'Pies',
+        icon: '🐕',
         cost: 1000,
         requires: 'rick',
-        effect: 'Odblokowuje psa przy nodze (modyfikacje: Kieł, Warta, Trop — automat co 8 s).'
+        effect: 'Pies przy nodze (Kieł, Warta, Trop — automat co 8 s).'
       }
     ]
   },
   {
     id: 'dying_light',
-    title: 'Gałąź Dying Light',
+    title: 'Dying Light',
     nodes: [
       {
         id: 'good_night',
         branch: 'dying_light',
-        name: 'Good night, good luck',
+        name: 'Good night',
+        icon: '🔦',
         cost: 450,
         effect: 'Latarka UV oślepia i spowalnia Volatile.'
       },
@@ -162,6 +220,7 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'brecken',
         branch: 'dying_light',
         name: 'Brecken',
+        icon: '🧣',
         cost: 700,
         requires: 'good_night',
         effect: 'Dash ma krótszy cooldown i tańszą staminę.'
@@ -170,14 +229,16 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'keep_light',
         branch: 'dying_light',
         name: 'Zostaw światło',
+        icon: '💡',
         cost: 800,
         requires: 'brecken',
-        effect: 'Na etapie 2 minięta latarnia gaśnie sekundę później, a stożek latarki trzyma Runnerów z tyłu w spowolnieniu.'
+        effect: 'Latarnia gaśnie 1 s później, latarka spowalnia Runnerów z tyłu.'
       },
       {
         id: 'explosive_parkour',
         branch: 'dying_light',
         name: 'Wybuchowy parkour',
+        icon: '💨',
         cost: 900,
         requires: 'brecken',
         effect: 'Dash zostawia falę uderzeniową.'
@@ -186,12 +247,13 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
   },
   {
     id: 'rec_l4d',
-    title: 'Gałąź REC / Left 4 Dead',
+    title: 'REC / Left 4 Dead',
     nodes: [
       {
         id: 'camera_on',
         branch: 'rec_l4d',
         name: 'Nie wyłączaj kamery',
+        icon: '📹',
         cost: 450,
         effect: 'Szerszy stożek latarki i mniejszy drain staminy na etapie 3.'
       },
@@ -199,6 +261,7 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'adrenaline',
         branch: 'rec_l4d',
         name: 'Adrenalina',
+        icon: '💉',
         cost: 700,
         requires: 'camera_on',
         effect: 'Pasek special ładuje się około 25% szybciej.'
@@ -207,6 +270,7 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'crownd',
         branch: 'rec_l4d',
         name: 'Cr0wnd',
+        icon: '🎸',
         cost: 900,
         requires: 'adrenaline',
         effect: 'Cięcia mocniej odrzucają.'
@@ -215,14 +279,16 @@ export const SKILL_BRANCHES: SkillBranchDef[] = [
         id: 'silent_wreck',
         branch: 'rec_l4d',
         name: 'Cichy wrak',
+        icon: '🚗',
         cost: 800,
         requires: 'crownd',
-        effect: 'Dash przez wrak na etapie 2 nie ściąga dodatkowych Runnerów z zgaszonej strefy.'
+        effect: 'Dash przez wrak na etapie 2 nie ściąga Runnerów.'
       },
       {
         id: 'carnage_spikes',
         branch: 'rec_l4d',
         name: 'Rzeź na kolce',
+        icon: '⚠',
         cost: 1100,
         requires: 'crownd',
         effect: 'Rzeź ściąga trafionych na najbliższe kolce.'
@@ -288,7 +354,20 @@ export const ZOMBIE_SKINS: ShopSkinDef<ZombieSkinId>[] = [
 const STORAGE_KEY_PROGRESSION = 'deadlight_rzeź_progression_v2';
 const STORAGE_KEY_HIGHSCORES = 'deadlight_rzeź_highscores_v2';
 const STORAGE_KEY_HIGHSCORES_L2 = 'deadlight_rzeź_highscores_l2_v2';
+const STORAGE_KEY_HIGHSCORES_L3 = 'deadlight_rzeź_highscores_l3_v2';
+const STORAGE_KEY_HIGHSCORES_SURVIVAL = 'deadlight_rzeź_highscores_survival_v1';
 const STORAGE_KEY_INTRO_SEEN = 'deadlight_rzeź_intro_seen_v2';
+const STORAGE_KEY_TUTORIAL_DONE = 'deadlight_rzeź_tutorial_done_v1';
+const STORAGE_KEY_PLAYER_ID = 'deadlight_rzeź_player_id_v1';
+const STORAGE_KEY_VHS = 'deadlight_rzeź_vhs_v1';
+
+export interface SurvivalHighScoreEntry {
+  wave: number;
+  points: number;
+  kills: number;
+  runCoins: number;
+  timestamp: number;
+}
 
 interface SavedProgressionData {
   treeXp: number;
@@ -299,6 +378,7 @@ interface SavedProgressionData {
   ownedZombieSkins: ZombieSkinId[];
   selectedZombieSkin: ZombieSkinId;
   selectedDogMod?: DogModId;
+  selectedDifficulty?: DifficultyId;
 }
 
 /**
@@ -344,10 +424,13 @@ export class UpgradeSystem {
   public ownedZombieSkins: Set<ZombieSkinId> = new Set(['port']);
   public selectedZombieSkin: ZombieSkinId = 'port';
   public selectedDogMod: DogModId = 'kiel';
+  public selectedDifficulty: DifficultyId = 'normal';
   public highScoresByLevel: Record<LevelId, HighScoreEntry[]> = {
     1: [],
-    2: []
+    2: [],
+    3: []
   };
+  public survivalHighScores: SurvivalHighScoreEntry[] = [];
 
   constructor() {
     this.loadFromStorage();
@@ -359,6 +442,23 @@ export class UpgradeSystem {
 
   public getHighScores(level: LevelId): HighScoreEntry[] {
     return this.highScoresByLevel[level];
+  }
+
+  public getBestLevelPoints(level: LevelId): number {
+    let best = 0;
+    for (const entry of this.highScoresByLevel[level]) {
+      const pts = entry.kills * 10 + entry.runCoins;
+      if (pts > best) best = pts;
+    }
+    return best;
+  }
+
+  public getBestSurvivalPoints(): number {
+    let best = 0;
+    for (const entry of this.survivalHighScores) {
+      if (entry.points > best) best = entry.points;
+    }
+    return best;
   }
 
   private loadFromStorage(): void {
@@ -390,6 +490,13 @@ export class UpgradeSystem {
         ) {
           this.selectedDogMod = parsed.selectedDogMod;
         }
+        if (
+          parsed.selectedDifficulty === 'easy' ||
+          parsed.selectedDifficulty === 'normal' ||
+          parsed.selectedDifficulty === 'hard'
+        ) {
+          this.selectedDifficulty = parsed.selectedDifficulty;
+        }
       }
     } catch {
       // Ignore storage errors
@@ -420,6 +527,32 @@ export class UpgradeSystem {
     } catch {
       this.highScoresByLevel[2] = [];
     }
+
+    try {
+      const rawScores3 = localStorage.getItem(STORAGE_KEY_HIGHSCORES_L3);
+      if (rawScores3) {
+        const parsed = JSON.parse(rawScores3);
+        if (Array.isArray(parsed)) {
+          this.highScoresByLevel[3] = parsed.slice(0, 10);
+          this.highScoresByLevel[3].sort(compareRuns);
+        }
+      }
+    } catch {
+      this.highScoresByLevel[3] = [];
+    }
+
+    try {
+      const rawSurv = localStorage.getItem(STORAGE_KEY_HIGHSCORES_SURVIVAL);
+      if (rawSurv) {
+        const parsed = JSON.parse(rawSurv);
+        if (Array.isArray(parsed)) {
+          this.survivalHighScores = parsed.slice(0, 10);
+          this.survivalHighScores.sort((a, b) => b.wave - a.wave || b.points - a.points);
+        }
+      }
+    } catch {
+      this.survivalHighScores = [];
+    }
   }
 
   public saveProgression(): void {
@@ -432,7 +565,8 @@ export class UpgradeSystem {
         selectedPlayerSkin: this.selectedPlayerSkin,
         ownedZombieSkins: Array.from(this.ownedZombieSkins),
         selectedZombieSkin: this.selectedZombieSkin,
-        selectedDogMod: this.selectedDogMod
+        selectedDogMod: this.selectedDogMod,
+        selectedDifficulty: this.selectedDifficulty
       };
       localStorage.setItem(STORAGE_KEY_PROGRESSION, JSON.stringify(data));
     } catch {
@@ -440,9 +574,34 @@ export class UpgradeSystem {
     }
   }
 
+  public setDifficulty(diff: DifficultyId): void {
+    this.selectedDifficulty = diff;
+    this.saveProgression();
+  }
+
+  public getDifficultyConfig(): DifficultyConfig {
+    return DIFFICULTY_CONFIGS[this.selectedDifficulty];
+  }
+
   public setDogMod(modId: DogModId): void {
     this.selectedDogMod = modId;
     this.saveProgression();
+  }
+
+  public isVhsEnabled(): boolean {
+    try {
+      return localStorage.getItem(STORAGE_KEY_VHS) !== '0';
+    } catch {
+      return true;
+    }
+  }
+
+  public setVhsEnabled(enabled: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEY_VHS, enabled ? '1' : '0');
+    } catch {
+      // Ignore
+    }
   }
 
   public hasSeenIntro(): boolean {
@@ -456,6 +615,33 @@ export class UpgradeSystem {
   public markIntroSeen(): void {
     try {
       localStorage.setItem(STORAGE_KEY_INTRO_SEEN, '1');
+    } catch {
+      // Ignore
+    }
+  }
+
+  public hasSeenTutorial(): boolean {
+    try {
+      return localStorage.getItem(STORAGE_KEY_TUTORIAL_DONE) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  public markTutorialSeen(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY_TUTORIAL_DONE, '1');
+    } catch {
+      // Ignore
+    }
+  }
+
+  public recordSurvivalHighScore(entry: SurvivalHighScoreEntry): void {
+    const list = [...this.survivalHighScores, entry];
+    list.sort((a, b) => b.wave - a.wave || b.points - a.points);
+    this.survivalHighScores = list.slice(0, 10);
+    try {
+      localStorage.setItem(STORAGE_KEY_HIGHSCORES_SURVIVAL, JSON.stringify(this.survivalHighScores));
     } catch {
       // Ignore
     }
@@ -566,10 +752,77 @@ export class UpgradeSystem {
 
   private saveHighScores(level: LevelId): void {
     try {
-      const key = level === 2 ? STORAGE_KEY_HIGHSCORES_L2 : STORAGE_KEY_HIGHSCORES;
+      const key =
+        level === 3
+          ? STORAGE_KEY_HIGHSCORES_L3
+          : level === 2
+          ? STORAGE_KEY_HIGHSCORES_L2
+          : STORAGE_KEY_HIGHSCORES;
       localStorage.setItem(key, JSON.stringify(this.highScoresByLevel[level]));
     } catch {
       // Ignore
+    }
+  }
+
+  public getOrCreatePlayerId(): string {
+    try {
+      const existing = localStorage.getItem(STORAGE_KEY_PLAYER_ID);
+      if (existing && existing.length >= 8) {
+        return existing;
+      }
+      const generated =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+              const r = (Math.random() * 16) | 0;
+              const v = c === 'x' ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            });
+      localStorage.setItem(STORAGE_KEY_PLAYER_ID, generated);
+      return generated;
+    } catch {
+      return 'anon-fallback-id';
+    }
+  }
+
+  public async claimDailyRewardOnline(): Promise<
+    | { status: 'claimed'; coins: number; streak: number }
+    | { status: 'already_claimed'; streak: number }
+    | { status: 'offline' }
+  > {
+    const id = this.getOrCreatePlayerId();
+    try {
+      const response = await fetch('/api/daily', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      if (!response.ok) {
+        return { status: 'offline' };
+      }
+
+      const data = (await response.json()) as {
+        coins?: unknown;
+        streak?: unknown;
+        alreadyClaimed?: unknown;
+      };
+
+      if (typeof data.streak !== 'number' || typeof data.alreadyClaimed !== 'boolean') {
+        return { status: 'offline' };
+      }
+
+      if (data.alreadyClaimed) {
+        return { status: 'already_claimed', streak: data.streak };
+      }
+
+      const grantedCoins = typeof data.coins === 'number' ? Math.max(0, Math.floor(data.coins)) : 0;
+      if (grantedCoins > 0) {
+        this.addCoins(grantedCoins);
+      }
+      return { status: 'claimed', coins: grantedCoins, streak: data.streak };
+    } catch {
+      return { status: 'offline' };
     }
   }
 }

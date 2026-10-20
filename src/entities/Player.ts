@@ -21,8 +21,8 @@ export class Player {
   public maxHp = 100;
   public stamina = 100;
   public maxStamina = 100;
-  public staminaRegen = 34;
-  public hpRegen = 0.5;
+  public staminaRegen = 12;
+  public hpRegen = 0.4;
 
   // Tony Hawk style Special meter (0..100, never decays on its own)
   public special = 0;
@@ -30,7 +30,7 @@ export class Player {
   public specialGainMultiplier = 1.0;
 
   public kills = 0;
-  public ammo = 28;
+  public ammo = 9;
 
   // Base combat parameters
   public moveSpeed = 8.5;
@@ -56,7 +56,7 @@ export class Player {
 
   // Weapons
   public meleeWeapon: MeleeWeaponSpec = MELEE_WEAPONS.katana;
-  public rangedWeapon: RangedWeaponSpec = RANGED_WEAPONS.shotgun;
+  public rangedWeapon: RangedWeaponSpec = RANGED_WEAPONS.pistol;
 
   // Action timers
   public attackCooldown = 0;
@@ -70,6 +70,8 @@ export class Player {
   public swingSide: 1 | -1 = 1;
   private swingAnimTimer = 0;
   private swingDuration = 0.2;
+  private isSpinSwing = false;
+  public meleeChargeRatio = 0;
   private walkCycle = 0;
 
   // Parts for procedural animation & skins
@@ -79,6 +81,7 @@ export class Player {
   private leftArm: THREE.Group;
   private rightArm: THREE.Group;
   private bladeMesh!: THREE.Mesh;
+  private hammerHeadMesh!: THREE.Mesh;
   private bladeGlowMat!: THREE.MeshStandardMaterial;
 
   private armorMat: THREE.MeshStandardMaterial;
@@ -254,13 +257,13 @@ export class Player {
 
     this.bodyGroup.add(this.rightArm);
 
-    // Player ground indicator ring
+    // Player ground indicator ring (muted dried blood / bone tone)
     const footRingGeo = new THREE.RingGeometry(0.58, 0.68, 24);
     footRingGeo.rotateX(-Math.PI / 2);
     const footRingMat = new THREE.MeshBasicMaterial({
-      color: 0x00e5ff,
+      color: 0xc24136,
       transparent: true,
-      opacity: 0.45
+      opacity: 0.42
     });
     const footRing = new THREE.Mesh(footRingGeo, footRingMat);
     footRing.position.y = 0.03;
@@ -285,24 +288,43 @@ export class Player {
 
   private buildBladeMesh(): void {
     const hilt = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.05, 0.38, 8),
+      new THREE.CylinderGeometry(0.05, 0.05, 0.36, 8),
       new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8 })
     );
     hilt.rotation.x = Math.PI / 2;
-    hilt.position.set(0, -0.08, 0.72);
+    hilt.position.set(0, -0.08, 0.68);
     this.rightArm.add(hilt);
 
     this.bladeGlowMat = new THREE.MeshStandardMaterial({
       color: this.meleeWeapon.bladeColor,
       emissive: this.meleeWeapon.emissiveColor,
-      emissiveIntensity: 1.6,
-      metalness: 0.9,
-      roughness: 0.15
+      emissiveIntensity: 1.4,
+      metalness: 0.85,
+      roughness: 0.2
     });
 
-    this.bladeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 2.1), this.bladeGlowMat);
-    this.bladeMesh.position.set(0, -0.08, 1.85);
+    // Katana skrócona o ok. 1/3 (1.4 zamiast 2.1)
+    this.bladeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), this.bladeGlowMat);
     this.rightArm.add(this.bladeMesh);
+
+    // Głowica młotka (widoczna tylko gdy założony jest Młotek)
+    this.hammerHeadMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.42, 0.24, 0.24),
+      this.bladeGlowMat
+    );
+    this.hammerHeadMesh.position.set(0, -0.08, 1.32);
+    this.hammerHeadMesh.visible = false;
+    this.rightArm.add(this.hammerHeadMesh);
+
+    this.syncBladeGeometry();
+  }
+
+  private syncBladeGeometry(): void {
+    const len = this.meleeWeapon.bladeLength;
+    const width = this.meleeWeapon.bladeWidth;
+    this.bladeMesh.scale.set(width, 1, len);
+    this.bladeMesh.position.set(0, -0.08, 0.72 + len * 0.5);
+    this.hammerHeadMesh.visible = this.meleeWeapon.id === 'hammer';
   }
 
   public applyPlayerSkin(skinId: PlayerSkinId): void {
@@ -347,6 +369,9 @@ export class Player {
   }
 
   public applySkillTree(upgrades: UpgradeSystem, isRoundStart = false): void {
+    const diff = upgrades.getDifficultyConfig();
+    this.damageMultiplier = diff.playerDmgMult;
+
     // Romero branch
     this.critChance = 0.16 + (upgrades.hasNode('barbara') ? 0.08 : 0);
     this.dawnBonusStage12 = upgrades.hasNode('dawn');
@@ -358,7 +383,8 @@ export class Player {
     const hasRick = upgrades.hasNode('rick');
     this.rangedDamageMultiplier = hasRick ? 1.2 : 1.0;
     if (isRoundStart) {
-      this.ammo = 28 + (hasRick ? 12 : 0);
+      const baseAmmo = 12 + (hasRick ? 6 : 0);
+      this.ammo = Math.max(2, Math.round(baseAmmo * diff.startAmmoMult));
     }
 
     // Dying Light branch
@@ -451,6 +477,7 @@ export class Player {
     this.meleeWeapon = MELEE_WEAPONS[id];
     this.bladeGlowMat.color.setHex(this.meleeWeapon.bladeColor);
     this.bladeGlowMat.emissive.setHex(this.meleeWeapon.emissiveColor);
+    this.syncBladeGeometry();
   }
 
   public equipRangedWeapon(id: RangedWeaponId): void {
@@ -459,6 +486,7 @@ export class Player {
 
   public prepareNextSwing(): 1 | -1 {
     this.swingSide = this.swingSide === 1 ? -1 : 1;
+    this.isSpinSwing = false;
     this.swingDuration = 0.2;
     this.swingAnimTimer = this.swingDuration;
 
@@ -470,15 +498,27 @@ export class Player {
     return this.swingSide;
   }
 
+  public prepareChargedSwing(): void {
+    this.swingSide = this.swingSide === 1 ? -1 : 1;
+    this.isSpinSwing = !this.meleeWeapon.chargedSlamWave;
+    this.swingDuration = 0.34;
+    this.swingAnimTimer = this.swingDuration;
+
+    const startYaw = -Math.PI;
+    this.rightArm.rotation.y = startYaw;
+    this.updateSlashTrailGeometry(startYaw + Math.PI * 0.85, startYaw);
+    this.slashTrailMat.opacity = 1.0;
+  }
+
   public startDash(moveVec: THREE.Vector2, stageNumber = 1): boolean {
-    let staminaCost = this.breckenDash ? 15 : 22;
+    let staminaCost = this.breckenDash ? 40 : 48;
     if (stageNumber === 3 && this.cameraOnPerk) {
-      staminaCost *= 0.75;
+      staminaCost *= 0.85;
     }
     if (this.dashCooldown > 0 || this.stamina < staminaCost) return false;
     this.stamina -= staminaCost;
     this.dashTimer = 0.22;
-    this.dashCooldown = this.breckenDash ? 0.36 : 0.52;
+    this.dashCooldown = this.breckenDash ? 0.42 : 0.58;
     this.invulnerableTimer = 0.28;
 
     if (moveVec.lengthSq() > 0.01) {
@@ -497,7 +537,8 @@ export class Player {
     arenaHalfWidth: number,
     arenaHalfLength: number,
     isNight: boolean,
-    stageNumber = 1
+    stageNumber = 1,
+    gamepadAimAngle: number | null = null
   ): { spawnedAfterimage: boolean; vaultedObstacle: ObstacleCollider | null } {
     let spawnedAfterimage = false;
     let vaultedObstacle: ObstacleCollider | null = null;
@@ -514,10 +555,14 @@ export class Player {
     );
     this.hp = Math.min(this.maxHp, this.hp + this.hpRegen * dt);
 
-    // Aim toward mouse cursor
-    const dx = mouseWorld.x - this.position.x;
-    const dz = mouseWorld.z - this.position.z;
-    this.aimAngle = Math.atan2(dx, dz);
+    // Gdy pad jest podłączony i drążek celowania jest ruszony, celowanie idzie z pada, nie z myszy
+    if (gamepadAimAngle !== null) {
+      this.aimAngle = gamepadAimAngle;
+    } else {
+      const dx = mouseWorld.x - this.position.x;
+      const dz = mouseWorld.z - this.position.z;
+      this.aimAngle = Math.atan2(dx, dz);
+    }
     this.mesh.rotation.y = this.aimAngle;
 
     // Update flashlight target & UV tint
@@ -591,18 +636,31 @@ export class Player {
 
     this.bodyGroup.rotation.x = THREE.MathUtils.lerp(this.bodyGroup.rotation.x, 0, 12 * dt);
 
-    // Sword swing animation + synchronized blade-leading trail
+    // Sword swing animation + synchronized blade-leading trail + charged spin
+    this.bladeGlowMat.emissiveIntensity = 1.4 + this.meleeChargeRatio * 2.2;
     if (this.swingAnimTimer > 0) {
       this.swingAnimTimer = Math.max(0, this.swingAnimTimer - dt);
       const rawT = 1 - this.swingAnimTimer / this.swingDuration;
-      const easedT = 1 - Math.pow(1 - rawT, 2.4);
-      const { startYaw, endYaw } = this.getSwingYawBounds(this.swingSide);
-      const currentYaw = THREE.MathUtils.lerp(startYaw, endYaw, easedT);
-      this.rightArm.rotation.y = currentYaw;
-      this.updateSlashTrailGeometry(currentYaw, startYaw);
+      const easedT = 1 - Math.pow(1 - rawT, 2.2);
+      if (this.isSpinSwing) {
+        const startYaw = -this.swingSide * Math.PI;
+        const endYaw = this.swingSide * Math.PI;
+        const currentYaw = THREE.MathUtils.lerp(startYaw, endYaw, easedT);
+        this.rightArm.rotation.y = currentYaw;
+        this.bodyGroup.rotation.y = currentYaw;
+        this.updateSlashTrailGeometry(currentYaw, currentYaw - this.swingSide * Math.PI * 1.15);
+      } else {
+        this.bodyGroup.rotation.y = 0;
+        const { startYaw, endYaw } = this.getSwingYawBounds(this.swingSide);
+        const currentYaw = THREE.MathUtils.lerp(startYaw, endYaw, easedT);
+        this.rightArm.rotation.y = currentYaw;
+        this.updateSlashTrailGeometry(currentYaw, startYaw);
+      }
       this.slashTrailMat.opacity = rawT < 0.75 ? 0.95 : (1 - (rawT - 0.75) / 0.25) * 0.95;
     } else {
-      const restYaw = -this.swingSide * 0.45;
+      this.bodyGroup.rotation.y = THREE.MathUtils.lerp(this.bodyGroup.rotation.y, 0, 14 * dt);
+      const chargeWindup = this.meleeChargeRatio * 0.65;
+      const restYaw = -this.swingSide * (0.45 + chargeWindup);
       this.rightArm.rotation.y = THREE.MathUtils.lerp(this.rightArm.rotation.y, restYaw, 12 * dt);
       this.slashTrailMat.opacity = Math.max(0, this.slashTrailMat.opacity - 10 * dt);
     }
@@ -633,8 +691,9 @@ export class Player {
     this.damageMultiplier = 1.0;
     this.attackSpeedMultiplier = 1.0;
     this.rangeMultiplier = 1.0;
+    this.meleeChargeRatio = 0;
     this.equipMeleeWeapon('katana');
-    this.equipRangedWeapon('shotgun');
+    this.equipRangedWeapon('pistol');
     this.applyPlayerSkin(upgrades.selectedPlayerSkin);
     this.applySkillTree(upgrades, true);
   }

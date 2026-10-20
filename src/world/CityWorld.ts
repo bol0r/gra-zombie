@@ -7,6 +7,8 @@ export interface ObstacleCollider {
   radius: number;
   vaultable: boolean;
   noiseTriggered?: boolean;
+  rearRunnersOnPass?: EncounterSpawnDef[];
+  rearRunnersTriggered?: boolean;
 }
 
 export interface ExplosiveBarrel {
@@ -74,6 +76,7 @@ export interface WreckDef {
   color: number;
   vaultable: boolean;
   radius?: number;
+  rearRunnersOnPass?: EncounterSpawnDef[];
 }
 
 export interface BarrelDef {
@@ -183,12 +186,15 @@ export const STAGE_DEFINITIONS: StageDefinition[] = [
       {
         id: 's1_side_welcome',
         triggerZ: 31,
-        triggerTime: 0.5,
+        triggerTime: 0.1,
         spawns: [
+          { type: 'walker', x: -2.3, z: 23.8 },
+          { type: 'walker', x: -0.7, z: 24.4 },
+          { type: 'runner', x: 0.0, z: 22.8 },
+          { type: 'walker', x: 0.8, z: 24.2 },
+          { type: 'walker', x: 2.3, z: 23.6 },
           { type: 'exploder', x: -5.2, z: 18.2 },
-          { type: 'walker', x: -6.8, z: 20.5 },
-          { type: 'walker', x: 5.5, z: 21.0 },
-          { type: 'walker', x: 7.2, z: 19.5 }
+          { type: 'walker', x: 5.5, z: 21.0 }
         ]
       },
       {
@@ -758,8 +764,367 @@ export const DIXON_STAGE_DEFINITIONS: StageDefinition[] = [
   }
 ];
 
+export const STATION_STAGE_DEFINITIONS: StageDefinition[] = [
+  // Etap 1 — Tunel: ciemny, wąski, lekko łamany korytarz. Światła są tylko plamami co kawałek, zombie stoją w ciemnych odcinkach między lampami, brama za drugim zakrętem
+  {
+    stage: 1,
+    halfWidth: 9.5,
+    halfLength: 34,
+    baseWidth: 22,
+    baseLength: 74,
+    wallColor: 0x10131a,
+    windowsLit: false,
+    playerStart: { x: 5.5, z: 29.0 },
+    ceilingHeight: 5.8,
+    pillars: [
+      { x: 0.0, z: 24.0, radius: 1.15 },
+      { x: 0.0, z: 16.0, radius: 1.15 },
+      { x: 0.0, z: 0.0, radius: 1.15 },
+      { x: 0.0, z: -6.0, radius: 1.15 },
+      { x: 0.0, z: -20.0, radius: 1.15 }
+    ],
+    wrecks: [
+      // Przegroda po lewej stronie na starcie (z = 28 -> 14), prowadząca korytarz prawą stroną
+      { x: -6.5, z: 24.0, rot: 0.05, color: 0x1d222b, vaultable: false, radius: 1.9 },
+      { x: -3.2, z: 24.0, rot: -0.05, color: 0x222732, vaultable: false, radius: 1.9 },
+      { x: -6.5, z: 16.0, rot: 0.08, color: 0x1b2029, vaultable: false, radius: 1.9 },
+      { x: -3.2, z: 16.0, rot: -0.06, color: 0x242934, vaultable: false, radius: 1.9 },
+
+      // Zator na prawej nitce (z = 4.5) wymuszający ZAKRĘT 1 w lewo (przy z ≈ 9.5)
+      { x: 3.2, z: 4.5, rot: 0.04, color: 0x252932, vaultable: false, radius: 1.95 },
+      { x: 6.8, z: 4.5, rot: -0.06, color: 0x1f232c, vaultable: false, radius: 1.95 },
+      { x: 6.5, z: -2.0, rot: 1.55, color: 0x232833, vaultable: false, radius: 1.9 },
+
+      // Zator na lewej nitce (z = -14.5) wymuszający ZAKRĘT 2 w prawo (przy z ≈ -10.5)
+      { x: -6.8, z: -14.5, rot: 0.06, color: 0x20252e, vaultable: false, radius: 1.95 },
+      { x: -3.2, z: -14.5, rot: -0.04, color: 0x272c37, vaultable: false, radius: 1.95 },
+      { x: -6.5, z: -22.0, rot: 1.56, color: 0x1e222b, vaultable: false, radius: 1.9 }
+    ],
+    spikes: [
+      { x: 7.5, z: 14.0, rot: -0.25 },
+      { x: -7.5, z: -5.5, rot: 0.25 },
+      { x: 2.2, z: -23.5, rot: 0.2 }
+    ],
+    barrels: [
+      { x: 2.2, z: 14.5 },
+      { x: -2.2, z: -5.5 },
+      { x: 8.0, z: -23.5 }
+    ],
+    // Światła są tylko plamami co kawałek (z = 22, z = 1, z = -18)
+    lamps: [
+      { x: 7.8, z: 22.0, flickers: false, extinguishOnPass: false },
+      { x: -7.8, z: 1.0, flickers: false, extinguishOnPass: false },
+      { x: 7.8, z: -18.0, flickers: false, extinguishOnPass: false }
+    ],
+    // Brama za drugim zakrętem, po prawej stronie tunelu (nie w prostej linii)
+    gate: {
+      x: 5.8,
+      z: -30.5,
+      meshX: 5.8,
+      meshZ: -31.5,
+      lockedInitially: false,
+      isLabsEntrance: false
+    },
+    // Zombie stoją w ciemnych odcinkach między plamami światła (z ≈ 13..15, z ≈ -6..-8, z ≈ -24..-26)
+    encounters: [
+      {
+        id: 'st1_dark_gap_1',
+        triggerZ: 29,
+        triggerTime: 0.4,
+        bannerText: 'TUNEL DWORCA — TRZYMAJ ŚWIATŁO LATARKI, BRAMA ZA DRUGIM ZAKRĘTEM!',
+        spawns: [
+          { type: 'walker', x: 7.6, z: 15.0 },
+          { type: 'walker', x: 2.6, z: 13.0 },
+          { type: 'exploder', x: 7.8, z: 11.8 }
+        ]
+      },
+      {
+        id: 'st1_dark_gap_2',
+        triggerZ: 10,
+        triggerTime: 7,
+        spawns: [
+          { type: 'tank', x: -7.6, z: -6.5 },
+          { type: 'walker', x: -2.5, z: -5.0 },
+          { type: 'runner', x: -7.8, z: -8.5 }
+        ]
+      },
+      {
+        id: 'st1_dark_gap_3',
+        triggerZ: -8,
+        triggerTime: 14,
+        spawns: [
+          { type: 'walker', x: 2.5, z: -24.0 },
+          { type: 'exploder', x: 8.0, z: -25.0 },
+          { type: 'runner', x: 2.4, z: -26.5 }
+        ]
+      }
+    ]
+  },
+
+  // Etap 2 — Tory: trzy równoległe linie wagonów (środkowy tor szybki przez dash, boczne tory z Exploderem i beczką, Runnerzy wychodzą zza wagonu po minięciu)
+  {
+    stage: 2,
+    halfWidth: 11.5,
+    halfLength: 35,
+    baseWidth: 26,
+    baseLength: 76,
+    wallColor: 0x181c26,
+    windowsLit: false,
+    playerStart: { x: 0, z: 31.0 },
+    wrecks: [
+      // ŚRODKOWY TOR (x = 0): linia wagonów do przeskoczenia dashem + Runnerzy wychodzący zza wagonu po jego minięciu (gonią z tyłu, nie tarasują przodu)
+      {
+        x: 0.0,
+        z: 21.0,
+        rot: Math.PI / 2,
+        color: 0x2b3c4f,
+        vaultable: true,
+        radius: 1.85,
+        rearRunnersOnPass: [
+          { type: 'runner', x: -1.8, z: 24.2 },
+          { type: 'runner', x: 1.8, z: 24.2 }
+        ]
+      },
+      {
+        x: 0.0,
+        z: 9.0,
+        rot: Math.PI / 2,
+        color: 0x3b2d2a,
+        vaultable: true,
+        radius: 1.85,
+        rearRunnersOnPass: [
+          { type: 'runner', x: -1.8, z: 12.2 },
+          { type: 'runner', x: 1.8, z: 12.2 }
+        ]
+      },
+      {
+        x: 0.0,
+        z: -3.0,
+        rot: Math.PI / 2,
+        color: 0x2e383b,
+        vaultable: true,
+        radius: 1.85,
+        rearRunnersOnPass: [
+          { type: 'runner', x: -1.8, z: 0.2 },
+          { type: 'runner', x: 1.8, z: 0.2 }
+        ]
+      },
+      {
+        x: 0.0,
+        z: -15.0,
+        rot: Math.PI / 2,
+        color: 0x423d2b,
+        vaultable: true,
+        radius: 1.85,
+        rearRunnersOnPass: [
+          { type: 'runner', x: -1.8, z: -11.8 },
+          { type: 'runner', x: 1.8, z: -11.8 }
+        ]
+      },
+      {
+        x: 0.0,
+        z: -25.0,
+        rot: Math.PI / 2,
+        color: 0x283645,
+        vaultable: true,
+        radius: 1.85
+      },
+
+      // LEWY TOR (x = -6.8): równoległa linia wagonów
+      { x: -6.8, z: 22.0, rot: Math.PI / 2, color: 0x232733, vaultable: true, radius: 1.85 },
+      { x: -6.8, z: 10.0, rot: Math.PI / 2, color: 0x2c303a, vaultable: true, radius: 1.85 },
+      { x: -6.8, z: -2.0, rot: Math.PI / 2, color: 0x252932, vaultable: true, radius: 1.85 },
+      { x: -6.8, z: -14.0, rot: Math.PI / 2, color: 0x22262f, vaultable: true, radius: 1.85 },
+      { x: -6.8, z: -24.5, rot: Math.PI / 2, color: 0x1f242d, vaultable: true, radius: 1.85 },
+
+      // PRAWY TOR (x = 6.8): równoległa linia wagonów
+      { x: 6.8, z: 22.0, rot: Math.PI / 2, color: 0x252932, vaultable: true, radius: 1.85 },
+      { x: 6.8, z: 10.0, rot: Math.PI / 2, color: 0x22262f, vaultable: true, radius: 1.85 },
+      { x: 6.8, z: -2.0, rot: Math.PI / 2, color: 0x232733, vaultable: true, radius: 1.85 },
+      { x: 6.8, z: -14.0, rot: Math.PI / 2, color: 0x2c303a, vaultable: true, radius: 1.85 },
+      { x: 6.8, z: -24.5, rot: Math.PI / 2, color: 0x1f242d, vaultable: true, radius: 1.85 },
+
+      // Słupy trakcyjne rozdzielające tory (zostawiają czystą linię po środkowym torze)
+      { x: -3.5, z: 15.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 },
+      { x: 3.5, z: 15.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 },
+      { x: -3.5, z: 3.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 },
+      { x: 3.5, z: 3.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 },
+      { x: -3.5, z: -9.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 },
+      { x: 3.5, z: -9.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 },
+      { x: -3.5, z: -20.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 },
+      { x: 3.5, z: -20.0, rot: 0, color: 0x1e222a, vaultable: false, radius: 1.35 }
+    ],
+    spikes: [
+      { x: -9.5, z: 16.0, rot: 0.25 },
+      { x: 9.5, z: 4.0, rot: -0.25 },
+      { x: -9.5, z: -8.0, rot: 0.25 },
+      { x: 9.5, z: -19.5, rot: -0.25 }
+    ],
+    // Beczki na bocznych torach (wolniejsza droga z łupem)
+    barrels: [
+      { x: -6.8, z: 16.0 },
+      { x: 6.8, z: 16.0 },
+      { x: -6.8, z: 4.0 },
+      { x: 6.8, z: -8.0 },
+      { x: -6.8, z: -19.5 }
+    ],
+    lamps: [
+      { x: -10.2, z: 24, flickers: true, extinguishOnPass: true },
+      { x: 10.2, z: 12, flickers: true, extinguishOnPass: true },
+      { x: -10.2, z: 0, flickers: true, extinguishOnPass: true },
+      { x: 10.2, z: -12, flickers: true, extinguishOnPass: true },
+      { x: -10.2, z: -24, flickers: true, extinguishOnPass: true }
+    ],
+    gate: {
+      z: -33.2,
+      meshZ: -34.2,
+      lockedInitially: false,
+      isLabsEntrance: false
+    },
+    // Explodery i zombie stoją na bocznych torach; przerwy na środkowym torze z przodu są czyste
+    encounters: [
+      {
+        id: 'st2_side_tracks_1',
+        triggerZ: 31,
+        triggerTime: 0.5,
+        bannerText: 'TORY KOLEJOWE — SZYBKA DROGA ŚRODKOWYM TOREM [SPACJA]!',
+        spawns: [
+          { type: 'exploder', x: -6.8, z: 15.0 },
+          { type: 'exploder', x: 6.8, z: 15.0 },
+          { type: 'walker', x: -8.2, z: 17.5 },
+          { type: 'walker', x: 8.2, z: 17.5 }
+        ]
+      },
+      {
+        id: 'st2_side_tracks_2',
+        triggerZ: 12,
+        triggerTime: 9,
+        spawns: [
+          { type: 'exploder', x: -6.8, z: 3.2 },
+          { type: 'tank', x: 6.8, z: 3.5 },
+          { type: 'exploder', x: 6.8, z: -8.8 },
+          { type: 'walker', x: -8.0, z: -7.5 }
+        ]
+      },
+      {
+        id: 'st2_side_tracks_3',
+        triggerZ: -6,
+        triggerTime: 18,
+        spawns: [
+          { type: 'exploder', x: -6.8, z: -19.0 },
+          { type: 'tank', x: 6.8, z: -19.0 },
+          { type: 'walker', x: -8.2, z: -21.0 },
+          { type: 'walker', x: 8.2, z: -21.0 }
+        ]
+      }
+    ]
+  },
+
+  // Etap 3 — Hala: duża, prawie pusta płyta; Boss stoi na środku (nie przy bramie), brama na drugim końcu hali, horda schodzi falami z dwóch bocznych peronów, beczki przy peronach
+  {
+    stage: 3,
+    halfWidth: 16.5,
+    halfLength: 35,
+    baseWidth: 36,
+    baseLength: 76,
+    wallColor: 0x141824,
+    windowsLit: true,
+    playerStart: { x: 0, z: 30.0 },
+    ceilingHeight: 11.5,
+    // Prawie pusta płyta hali głównej
+    wrecks: [
+      { x: -11.5, z: 18.0, rot: 0.25, color: 0x262f3d, vaultable: true },
+      { x: 11.5, z: -18.0, rot: -0.25, color: 0x3b232b, vaultable: true }
+    ],
+    spikes: [
+      { x: -12.8, z: 6.0, rot: 0.2 },
+      { x: 12.8, z: 6.0, rot: -0.2 },
+      { x: -12.8, z: -10.0, rot: 0.25 },
+      { x: 12.8, z: -10.0, rot: -0.25 }
+    ],
+    // Beczki wyłącznie przy dwóch bocznych peronach, nie na linii środkowej do bossa
+    barrels: [
+      { x: -14.2, z: 22.0 },
+      { x: 14.2, z: 22.0 },
+      { x: -14.2, z: 8.0 },
+      { x: 14.2, z: 8.0 },
+      { x: -14.2, z: -6.0 },
+      { x: 14.2, z: -6.0 },
+      { x: -14.2, z: -22.0 },
+      { x: 14.2, z: -22.0 }
+    ],
+    lamps: [
+      { x: -14.8, z: 22, flickers: true, extinguishOnPass: false },
+      { x: 14.8, z: 22, flickers: true, extinguishOnPass: false },
+      { x: -14.8, z: 0, flickers: true, extinguishOnPass: false },
+      { x: 14.8, z: 0, flickers: true, extinguishOnPass: false },
+      { x: -14.8, z: -22, flickers: true, extinguishOnPass: false },
+      { x: 14.8, z: -22, flickers: true, extinguishOnPass: false }
+    ],
+    gate: {
+      z: -33.2,
+      meshZ: -34.2,
+      lockedInitially: true,
+      isLabsEntrance: true
+    },
+    encounters: [
+      {
+        id: 'st3_center_boss_and_platforms_1',
+        triggerZ: 31,
+        triggerTime: 0.4,
+        bannerText: 'HALA DWORCA — BOSS NA ŚRODKU OTWIERA BRAMĘ NA KOŃCU HALI!',
+        spawns: [
+          // Boss (Tank) stoi na samym środku hali, nie przy bramie!
+          { type: 'tank', x: 0.0, z: 0.0, isBoss: true },
+          // Fala 1 schodząca z dwóch bocznych peronów (lewy i prawy peron)
+          { type: 'runner', x: -15.2, z: 16.0 },
+          { type: 'runner', x: 15.2, z: 16.0 },
+          { type: 'walker', x: -15.0, z: 10.0 },
+          { type: 'walker', x: 15.0, z: 10.0 }
+        ]
+      },
+      {
+        id: 'st3_platforms_wave_2',
+        triggerZ: 12,
+        triggerTime: 9,
+        spawns: [
+          // Fala 2 z bocznych peronów
+          { type: 'runner', x: -15.2, z: 2.0 },
+          { type: 'runner', x: 15.2, z: 2.0 },
+          { type: 'exploder', x: -14.5, z: -3.0 },
+          { type: 'exploder', x: 14.5, z: -3.0 },
+          { type: 'walker', x: -15.0, z: -8.0 },
+          { type: 'walker', x: 15.0, z: -8.0 }
+        ]
+      },
+      {
+        id: 'st3_platforms_wave_3',
+        triggerZ: -6,
+        triggerTime: 18,
+        spawns: [
+          // Fala 3 z bocznych peronów bliżej drugiego końca hali
+          { type: 'runner', x: -15.2, z: -16.0 },
+          { type: 'runner', x: 15.2, z: -16.0 },
+          { type: 'exploder', x: -14.5, z: -20.0 },
+          { type: 'exploder', x: 14.5, z: -20.0 },
+          { type: 'walker', x: -15.0, z: -25.0 },
+          { type: 'walker', x: 15.0, z: -25.0 }
+        ]
+      }
+    ]
+  }
+];
+
 export function getStageDefinitionsForLevel(level: LevelId): StageDefinition[] {
-  return level === 2 ? DIXON_STAGE_DEFINITIONS : STAGE_DEFINITIONS;
+  if (level === 3) return STATION_STAGE_DEFINITIONS;
+  if (level === 2) return DIXON_STAGE_DEFINITIONS;
+  return STAGE_DEFINITIONS;
+}
+
+export interface BuildingOccluder {
+  box: THREE.Box3;
+  materials: THREE.Material[];
+  currentOpacity: number;
 }
 
 export class CityWorld {
@@ -768,6 +1133,7 @@ export class CityWorld {
 
   public currentLevel: LevelId = 1;
   public currentStreet = 1;
+  public isSurvivalArena = false;
   public arenaHalfWidth = 14;
   public arenaHalfLength = 35;
   public playerSpawnPoint = new THREE.Vector3(0, 0, 30);
@@ -777,6 +1143,7 @@ export class CityWorld {
   public spikes: SpikeTrap[] = [];
   public lamps: StreetLamp[] = [];
   public thresholdDoors: ActiveThresholdDoor[] = [];
+  public buildings: BuildingOccluder[] = [];
 
   // Exit Gate
   public gatePosition = new THREE.Vector3(0, 0, -33.2);
@@ -858,10 +1225,12 @@ export class CityWorld {
     this.spikes = [];
     this.lamps = [];
     this.thresholdDoors = [];
+    this.buildings = [];
   }
 
   public loadStreet(streetIndex: number, level: LevelId = this.currentLevel): void {
     this.clearStreet();
+    this.isSurvivalArena = false;
     this.currentLevel = level;
     const defs = getStageDefinitionsForLevel(level);
     const def = defs[streetIndex - 1] ?? defs[0];
@@ -912,6 +1281,43 @@ export class CityWorld {
     }
 
     this.buildExitGate(def.gate);
+  }
+
+  public loadSurvivalArena(): void {
+    this.clearStreet();
+    this.isSurvivalArena = true;
+    this.currentLevel = 1;
+    const def = STAGE_DEFINITIONS[0];
+
+    this.currentStreet = 1;
+    this.arenaHalfWidth = def.halfWidth;
+    this.arenaHalfLength = def.halfLength;
+    this.gateLocked = true;
+    this.playerSpawnPoint.set(0, 0, 4);
+
+    this.buildStreetBase(def.baseWidth, def.baseLength, false);
+    this.buildPerimeterCorridor(
+      def.halfWidth,
+      def.halfLength,
+      def.wallColor,
+      true,
+      false,
+      undefined,
+      true
+    );
+
+    for (const wreck of def.wrecks) {
+      this.addCarWreck(wreck);
+    }
+    for (const spike of def.spikes) {
+      this.addSpikeTrap(spike.x, spike.z, spike.rot);
+    }
+    for (const barrel of def.barrels) {
+      this.addBarrel(barrel.x, barrel.z);
+    }
+    for (const lamp of def.lamps) {
+      this.addStreetLamp(lamp.x, lamp.z, true, false);
+    }
   }
 
   private buildStreetBase(width: number, length: number, isHelipad: boolean): void {
@@ -974,16 +1380,9 @@ export class CityWorld {
     wallColor: number,
     windowsLit: boolean,
     openRooftop: boolean,
-    ceilingHeight?: number
+    ceilingHeight?: number,
+    closeNorthEnd = false
   ): void {
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: wallColor,
-      roughness: 0.85,
-      metalness: 0.15
-    });
-    const windowLitMat = new THREE.MeshBasicMaterial({ color: 0xff9933 });
-    const windowDarkMat = new THREE.MeshStandardMaterial({ color: 0x090b10, roughness: 0.2 });
-
     if (!openRooftop) {
       for (let z = -30; z <= 30; z += 15) {
         for (const side of [-1, 1]) {
@@ -992,7 +1391,26 @@ export class CityWorld {
           const h = ceilingHeight ?? 11 + ((Math.abs(z) + (side > 0 ? 3 : 1)) % 6);
           const d = 13.5;
 
-          const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+          const bWallMat = new THREE.MeshStandardMaterial({
+            color: wallColor,
+            roughness: 0.85,
+            metalness: 0.15,
+            transparent: true,
+            opacity: 1.0
+          });
+          const bWinLitMat = new THREE.MeshBasicMaterial({
+            color: 0xff9933,
+            transparent: true,
+            opacity: 1.0
+          });
+          const bWinDarkMat = new THREE.MeshStandardMaterial({
+            color: 0x090b10,
+            roughness: 0.2,
+            transparent: true,
+            opacity: 1.0
+          });
+
+          const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bWallMat);
           body.position.y = h / 2;
           body.castShadow = true;
           body.receiveShadow = true;
@@ -1004,7 +1422,7 @@ export class CityWorld {
                 const isLit = windowsLit && (wy + wz) % 5 === 0;
                 const win = new THREE.Mesh(
                   new THREE.BoxGeometry(w + 0.12, 1.4, 1.1),
-                  isLit ? windowLitMat : windowDarkMat
+                  isLit ? bWinLitMat : bWinDarkMat
                 );
                 win.position.set(0, wy, wz);
                 bGroup.add(win);
@@ -1012,8 +1430,19 @@ export class CityWorld {
             }
           }
 
-          bGroup.position.set(side * (halfW + 4.8), 0, z);
+          const bx = side * (halfW + 4.8);
+          bGroup.position.set(bx, 0, z);
           this.worldGroup.add(bGroup);
+
+          const box = new THREE.Box3(
+            new THREE.Vector3(bx - w * 0.5 - 1.6, 0, z - d * 0.5 - 1.6),
+            new THREE.Vector3(bx + w * 0.5 + 1.6, h + 1.5, z + d * 0.5 + 1.6)
+          );
+          this.buildings.push({
+            box,
+            materials: [bWallMat, bWinLitMat, bWinDarkMat],
+            currentOpacity: 1.0
+          });
         }
       }
     }
@@ -1053,6 +1482,13 @@ export class CityWorld {
       sb.position.set(x, 0.55, halfL + 0.55);
       sb.castShadow = true;
       this.worldGroup.add(sb);
+
+      if (closeNorthEnd) {
+        const nb = new THREE.Mesh(southGeo, barrierMat);
+        nb.position.set(x, 0.55, -halfL - 0.55);
+        nb.castShadow = true;
+        this.worldGroup.add(nb);
+      }
     }
   }
 
@@ -1351,7 +1787,11 @@ export class CityWorld {
       position: new THREE.Vector3(wreck.x, 0, wreck.z),
       radius: wreck.radius ?? 1.7,
       vaultable: wreck.vaultable,
-      noiseTriggered: false
+      noiseTriggered: false,
+      rearRunnersOnPass: wreck.rearRunnersOnPass
+        ? wreck.rearRunnersOnPass.map((r) => ({ ...r }))
+        : undefined,
+      rearRunnersTriggered: false
     });
   }
 
@@ -1500,6 +1940,37 @@ export class CityWorld {
     });
   }
 
+  public updateBuildingOcclusion(
+    cameraPos: THREE.Vector3,
+    playerPos: THREE.Vector3,
+    dt: number
+  ): void {
+    const ray = new THREE.Ray();
+    const targetHead = new THREE.Vector3(playerPos.x, 1.1, playerPos.z);
+    const dir = new THREE.Vector3().subVectors(targetHead, cameraPos);
+    const maxDist = dir.length();
+    if (maxDist > 0.001) dir.divideScalar(maxDist);
+    ray.set(cameraPos, dir);
+    const hitPoint = new THREE.Vector3();
+
+    for (const b of this.buildings) {
+      let occluding = false;
+      const hit = ray.intersectBox(b.box, hitPoint);
+      if (hit && hit.distanceTo(cameraPos) < maxDist + 1.5) {
+        occluding = true;
+      }
+
+      const targetOpacity = occluding ? 0.28 : 1.0;
+      if (Math.abs(b.currentOpacity - targetOpacity) > 0.003) {
+        b.currentOpacity = THREE.MathUtils.lerp(b.currentOpacity, targetOpacity, Math.min(1, 10 * dt));
+        for (const mat of b.materials) {
+          mat.opacity = b.currentOpacity;
+          mat.depthWrite = b.currentOpacity > 0.92;
+        }
+      }
+    }
+  }
+
   public update(
     dt: number,
     elapsedTime: number,
@@ -1533,6 +2004,20 @@ export class CityWorld {
         door.lightMat.color.setHex(0x39ff7a);
         if (onDoorThresholdPassed && door.rearRunners.length > 0) {
           onDoorThresholdPassed(door.rearRunners);
+        }
+      }
+    }
+
+    // Update wagon rear runners (Station Stage 2): Runners emerge from behind a wagon after the player passes it
+    for (const obs of this.obstacles) {
+      if (
+        obs.rearRunnersOnPass &&
+        !obs.rearRunnersTriggered &&
+        playerZ <= obs.position.z - 2.2
+      ) {
+        obs.rearRunnersTriggered = true;
+        if (onDoorThresholdPassed) {
+          onDoorThresholdPassed(obs.rearRunnersOnPass);
         }
       }
     }

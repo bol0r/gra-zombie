@@ -48,6 +48,27 @@ export class DayNightCycle {
   public setStreetEnvironment(streetIndex: number, streetProgress = 0, level = 1): void {
     this.currentStreet = streetIndex;
 
+    if (level === 3) {
+      if (streetIndex === 1) {
+        // Station Stage 1: Pitch-dark underground tunnel where lights are only sparse pools
+        this.isNight = true;
+        this.nightFactor = 0.94;
+        this.warningActive = false;
+      } else if (streetIndex === 2) {
+        // Station Stage 2: Dusk/Night railway tracks
+        this.isNight = streetProgress > 0.45;
+        this.nightFactor = THREE.MathUtils.lerp(0.62, 0.9, streetProgress);
+        this.warningActive = true;
+      } else {
+        // Station Stage 3: Grand station hall at night
+        this.isNight = true;
+        this.nightFactor = 0.96;
+        this.warningActive = true;
+      }
+      this.applyLighting();
+      return;
+    }
+
     if (level === 2) {
       if (streetIndex === 1) {
         // Dixon Stage 1: Dark underground parking garage where flashlight is essential

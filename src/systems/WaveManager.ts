@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Zombie } from '../entities/Zombie';
+import { Zombie, ZombieType } from '../entities/Zombie';
 import { EncounterSpawnDef, getStageDefinitionsForLevel } from '../world/CityWorld';
-import { LevelId, ZombieSkinId } from './UpgradeSystem';
+import { DifficultyId, LevelId, ZombieSkinId } from './UpgradeSystem';
 
 export interface StreetEncounter {
   id: string;
@@ -18,10 +18,18 @@ export class WaveManager {
   public currentLevel: LevelId = 1;
   public currentStreet = 1;
   public activeZombieSkin: ZombieSkinId = 'port';
+  public activeDifficulty: DifficultyId = 'normal';
   public encounters: StreetEncounter[] = [];
   public bossZombie: Zombie | null = null;
   public bossDefeated = false;
-  private readonly maxConcurrentZombies = 32;
+  private readonly maxConcurrentZombies = 34;
+
+  // Survival Mode state
+  public isSurvivalMode = false;
+  public survivalWave = 1;
+  public survivalBreatherTimer = 0;
+  public survivalRemainingToSpawn = 0;
+  private survivalSpawnTimer = 0;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -30,6 +38,7 @@ export class WaveManager {
 
   public loadStreetEncounters(streetIndex: number, level: LevelId = this.currentLevel): void {
     this.clearZombies();
+    this.isSurvivalMode = false;
     this.currentLevel = level;
     const defs = getStageDefinitionsForLevel(level);
     const def = defs[streetIndex - 1] ?? defs[0];
@@ -48,6 +57,74 @@ export class WaveManager {
     }));
   }
 
+  public startSurvivalMode(): void {
+    this.clearZombies();
+    this.isSurvivalMode = true;
+    this.currentLevel = 1;
+    this.currentStreet = 1;
+    this.encounters = [];
+    this.bossZombie = null;
+    this.bossDefeated = false;
+    this.survivalWave = 1;
+    this.survivalBreatherTimer = 0;
+    this.beginSurvivalWave(1);
+  }
+
+  private beginSurvivalWave(wave: number): void {
+    this.survivalWave = wave;
+    this.survivalRemainingToSpawn = 4 + wave * 3;
+    this.survivalSpawnTimer = 0.1;
+  }
+
+  private spawnOneSurvivalZombie(playerPos: THREE.Vector3): void {
+    const w = this.survivalWave;
+    let type: ZombieType = 'walker';
+    const isBoss = w % 4 === 0 && this.survivalRemainingToSpawn === 1;
+    const roll = Math.random();
+    if (isBoss) {
+      type = 'tank';
+    } else if (w >= 3 && roll < 0.16) {
+      type = 'tank';
+    } else if (w >= 2 && roll < 0.36) {
+      type = 'exploder';
+    } else if (roll < 0.62) {
+      type = 'runner';
+    }
+
+    // Spawn around perimeter of Stary Port arena, away from player
+    let sx = (Math.random() - 0.5) * 22;
+    let sz = (Math.random() - 0.5) * 56;
+    if (Math.random() < 0.5) {
+      sx = (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 2.5);
+    } else {
+      sz = (Math.random() < 0.5 ? -1 : 1) * (24 + Math.random() * 6);
+    }
+    if (Math.hypot(sx - playerPos.x, sz - playerPos.z) < 8) {
+      sz = playerPos.z > 0 ? -24 : 24;
+    }
+
+    const z = new Zombie(
+      type,
+      new THREE.Vector3(sx, 0, sz),
+      Math.min(3, 1 + Math.floor((w - 1) / 2)),
+      isBoss,
+      this.activeZombieSkin,
+      this.activeDifficulty
+    );
+
+    const waveScale = 1 + (w - 1) * 0.14;
+    z.maxHp = Math.round(z.maxHp * waveScale);
+    z.hp = z.maxHp;
+    z.damage = Math.round(z.damage * (1 + (w - 1) * 0.1));
+    z.baseSpeed *= Math.min(1.35, 1 + (w - 1) * 0.03);
+
+    this.scene.add(z.mesh);
+    this.zombies.push(z);
+    if (isBoss) {
+      this.bossZombie = z;
+    }
+  }
+
   /**
    * Spawns Runners emerging from side niches behind the player when a hospital ward door threshold is passed.
    */
@@ -59,7 +136,8 @@ export class WaveManager {
         new THREE.Vector3(sp.x, 0, sp.z),
         this.currentStreet,
         false,
-        this.activeZombieSkin
+        this.activeZombieSkin,
+        this.activeDifficulty
       );
       this.scene.add(runner.mesh);
       this.zombies.push(runner);
@@ -84,7 +162,8 @@ export class WaveManager {
         new THREE.Vector3(x, 0, z),
         this.currentStreet,
         false,
-        this.activeZombieSkin
+        this.activeZombieSkin,
+        this.activeDifficulty
       );
       this.scene.add(runner.mesh);
       this.zombies.push(runner);
@@ -109,7 +188,8 @@ export class WaveManager {
         new THREE.Vector3(x, 0, z),
         this.currentStreet,
         false,
-        this.activeZombieSkin
+        this.activeZombieSkin,
+        this.activeDifficulty
       );
       this.scene.add(runner.mesh);
       this.zombies.push(runner);
@@ -127,7 +207,8 @@ export class WaveManager {
         new THREE.Vector3(sp.x, 0, sp.z),
         this.currentStreet,
         Boolean(sp.isBoss),
-        this.activeZombieSkin
+        this.activeZombieSkin,
+        this.activeDifficulty
       );
       this.scene.add(z.mesh);
       this.zombies.push(z);
@@ -156,22 +237,53 @@ export class WaveManager {
   }
 
   public update(
-    _dt: number,
+    dt: number,
     playerPos: THREE.Vector3,
     stageElapsed: number,
     onBanner: (title: string, sub: string) => void,
-    onBossDefeated: () => void
+    onBossDefeated: () => void,
+    onSurvivalWaveStart?: (wave: number) => void
   ): void {
     // Clean up dead zombies
     for (let i = this.zombies.length - 1; i >= 0; i--) {
       if (this.zombies[i].isDead) {
         if (this.zombies[i] === this.bossZombie && !this.bossDefeated) {
           this.bossDefeated = true;
-          onBossDefeated();
+          if (!this.isSurvivalMode) {
+            onBossDefeated();
+          }
         }
         this.disposeZombieMesh(this.zombies[i]);
         this.zombies.splice(i, 1);
       }
+    }
+
+    if (this.isSurvivalMode) {
+      if (this.survivalRemainingToSpawn > 0) {
+        this.survivalSpawnTimer -= dt;
+        if (this.survivalSpawnTimer <= 0 && this.zombies.length < this.maxConcurrentZombies) {
+          this.spawnOneSurvivalZombie(playerPos);
+          this.survivalRemainingToSpawn--;
+          this.survivalSpawnTimer = Math.max(0.22, 0.68 - this.survivalWave * 0.04);
+        }
+      } else if (this.zombies.length === 0) {
+        if (this.survivalBreatherTimer <= 0) {
+          this.survivalBreatherTimer = 4.0;
+          onBanner(`FALA ${this.survivalWave} ODPARTA`, 'Krótki oddech przed kolejną falą...');
+        } else {
+          this.survivalBreatherTimer -= dt;
+          if (this.survivalBreatherTimer <= 0) {
+            this.survivalBreatherTimer = 0;
+            const nextW = this.survivalWave + 1;
+            this.beginSurvivalWave(nextW);
+            onBanner(`FALA ${nextW}`, 'Nadciąga liczniejsza i silniejsza horda!');
+            if (onSurvivalWaveStart) {
+              onSurvivalWaveStart(nextW);
+            }
+          }
+        }
+      }
+      return;
     }
 
     // Trigger stage encounters from data based on player Z position or stage clock
@@ -192,7 +304,7 @@ export class WaveManager {
     for (const enc of this.encounters) {
       if (!enc.triggered) untriggeredCount += enc.spawns.length;
     }
-    return this.zombies.length + untriggeredCount;
+    return this.zombies.length + untriggeredCount + this.survivalRemainingToSpawn;
   }
 
   public clearZombies(): void {
@@ -201,5 +313,7 @@ export class WaveManager {
     }
     this.zombies = [];
     this.bossZombie = null;
+    this.survivalRemainingToSpawn = 0;
+    this.survivalBreatherTimer = 0;
   }
 }

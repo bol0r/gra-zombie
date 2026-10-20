@@ -4,6 +4,7 @@ import { IsometricCamera } from '../core/IsometricCamera';
 import { DayNightCycle } from '../world/DayNightCycle';
 import {
   compareRuns,
+  DifficultyId,
   DOG_MODS,
   DogModId,
   LevelId,
@@ -23,6 +24,19 @@ interface FloatingTextItem {
   maxLife: number;
   vy: number;
 }
+
+interface ActiveBadgeToast {
+  el: HTMLDivElement;
+  life: number;
+}
+
+export type EpicBadgeWord =
+  | 'HEADSHOT'
+  | 'NA KOLCE'
+  | 'BECZKA'
+  | 'PIESEK'
+  | 'SERIA'
+  | 'BOSS';
 
 export interface PlayerRunSummary {
   playerNumber: 1 | 2;
@@ -59,6 +73,7 @@ export class UIManager {
   private streetSubEl = document.getElementById('hud-street-sub')!;
   private hudTreeXpEl = document.getElementById('hud-tree-xp')!;
   private hudCoinsEl = document.getElementById('hud-coins')!;
+  private hudPadBadgeEl = document.getElementById('hud-pad-badge')!;
 
   private clockPanelEl = document.getElementById('hud-clock-panel')!;
   private dayIconEl = document.getElementById('hud-day-icon')!;
@@ -75,6 +90,9 @@ export class UIManager {
   private bannerTitleEl = document.getElementById('hud-banner-title')!;
   private bannerSubEl = document.getElementById('hud-banner-sub')!;
   private bannerTimer = 0;
+
+  private badgeStackEl = document.getElementById('hud-badge-stack')!;
+  private activeBadges: ActiveBadgeToast[] = [];
 
   private hpTextEl = document.getElementById('hud-hp-text')!;
   private hpFillEl = document.getElementById('hud-hp-fill')!;
@@ -103,6 +121,7 @@ export class UIManager {
   private highScoreListEl = document.getElementById('highscore-list')!;
   private btnHsLvl1El = document.getElementById('btn-hs-lvl1')!;
   private btnHsLvl2El = document.getElementById('btn-hs-lvl2')!;
+  private btnHsLvl3El = document.getElementById('btn-hs-lvl3')!;
   private btnMenuDogEl = document.getElementById('btn-menu-dog')!;
   private btnPauseDogEl = document.getElementById('btn-pause-dog')!;
   public activeHighScoreLevel: LevelId = 1;
@@ -110,10 +129,18 @@ export class UIManager {
   private levelSelectOverlay = document.getElementById('level-select-overlay')!;
   private levelSelectBadgeEl = document.getElementById('level-select-badge')!;
 
+  private difficultySelectOverlay = document.getElementById('difficulty-select-overlay')!;
+  private difficultySelectBadgeEl = document.getElementById('difficulty-select-badge')!;
+  private btnDiffEasyEl = document.getElementById('btn-diff-easy')!;
+  private btnDiffNormalEl = document.getElementById('btn-diff-normal')!;
+  private btnDiffHardEl = document.getElementById('btn-diff-hard')!;
+
   private dogModOverlay = document.getElementById('dog-mod-overlay')!;
   private dogModListEl = document.getElementById('dog-mod-list')!;
 
   private pauseOverlay = document.getElementById('pause-overlay')!;
+  private optionsOverlay = document.getElementById('options-overlay')!;
+  private vhsToggleEl = document.getElementById('btn-vhs-toggle')!;
   private pauseStatusTextEl = document.getElementById('pause-status-text')!;
 
   private treeOverlay = document.getElementById('tree-overlay')!;
@@ -157,8 +184,10 @@ export class UIManager {
     this.refreshMainMenuData(upgrades);
     this.startOverlay.classList.remove('hidden');
     this.levelSelectOverlay.classList.add('hidden');
+    this.difficultySelectOverlay.classList.add('hidden');
     this.dogModOverlay.classList.add('hidden');
     this.pauseOverlay.classList.add('hidden');
+    this.optionsOverlay.classList.add('hidden');
     this.treeOverlay.classList.add('hidden');
     this.shopOverlay.classList.add('hidden');
     this.introOverlay.classList.add('hidden');
@@ -188,16 +217,23 @@ export class UIManager {
     this.activeHighScoreLevel = level;
     this.btnHsLvl1El.classList.toggle('active', level === 1);
     this.btnHsLvl2El.classList.toggle('active', level === 2);
+    this.btnHsLvl3El.classList.toggle('active', level === 3);
     this.renderHighScores(upgrades);
   }
 
   private renderHighScores(upgrades: UpgradeSystem): void {
     this.btnHsLvl1El.classList.toggle('active', this.activeHighScoreLevel === 1);
     this.btnHsLvl2El.classList.toggle('active', this.activeHighScoreLevel === 2);
+    this.btnHsLvl3El.classList.toggle('active', this.activeHighScoreLevel === 3);
     this.highScoreListEl.innerHTML = '';
     const scores = upgrades.getHighScores(this.activeHighScoreLevel);
     if (scores.length === 0) {
-      const lvlName = this.activeHighScoreLevel === 1 ? 'Stary Port' : 'Szpital Dixona';
+      const lvlName =
+        this.activeHighScoreLevel === 3
+          ? 'Dworzec'
+          : this.activeHighScoreLevel === 2
+          ? 'Szpital Dixona'
+          : 'Stary Port';
       this.highScoreListEl.innerHTML = `<div class="hs-empty">Brak wyników (${lvlName}). Rozegraj pierwszą rundę!</div>`;
       return;
     }
@@ -231,6 +267,25 @@ export class UIManager {
 
   public hideLevelSelectModal(): void {
     this.levelSelectOverlay.classList.add('hidden');
+  }
+
+  public showDifficultySelectModal(level: LevelId, selectedDiff: DifficultyId): void {
+    this.levelSelectOverlay.classList.add('hidden');
+    const levelLabel =
+      level === 3
+        ? 'POZIOM 3: DWORZEC'
+        : level === 2
+        ? 'POZIOM 2: SZPITAL DIXONA'
+        : 'POZIOM 1: STARY PORT';
+    this.difficultySelectBadgeEl.textContent = `${levelLabel} • WYBÓR TRUDNOŚCI`;
+    this.btnDiffEasyEl.classList.toggle('active-diff', selectedDiff === 'easy');
+    this.btnDiffNormalEl.classList.toggle('active-diff', selectedDiff === 'normal');
+    this.btnDiffHardEl.classList.toggle('active-diff', selectedDiff === 'hard');
+    this.difficultySelectOverlay.classList.remove('hidden');
+  }
+
+  public hideDifficultySelectModal(): void {
+    this.difficultySelectOverlay.classList.add('hidden');
   }
 
   public showDogModModal(
@@ -273,6 +328,15 @@ export class UIManager {
     this.dogModOverlay.classList.add('hidden');
   }
 
+  public showOptions(vhsEnabled: boolean): void {
+    this.vhsToggleEl.textContent = vhsEnabled ? 'FILTR VHS: WŁĄCZONY' : 'FILTR VHS: WYŁĄCZONY';
+    this.optionsOverlay.classList.remove('hidden');
+  }
+
+  public hideOptions(): void {
+    this.optionsOverlay.classList.add('hidden');
+  }
+
   public showPauseModal(
     roundTimeRemaining: number,
     stageNumber: number,
@@ -313,41 +377,55 @@ export class UIManager {
       title.textContent = branch.title;
       col.appendChild(title);
 
-      for (const node of branch.nodes) {
+      branch.nodes.forEach((node, idx) => {
         const isUnlocked = upgrades.hasNode(node.id);
         const isPrereqLocked = upgrades.isNodeLockedByPrereq(node);
         const canBuy = upgrades.canUnlockNode(node);
 
-        const card = document.createElement('div');
-        card.className = `tree-node-card ${isUnlocked ? 'unlocked' : ''} ${
-          isPrereqLocked ? 'locked' : ''
-        }`;
-
-        let btnText = `KUP (${node.cost} XP)`;
-        if (isUnlocked) {
-          btnText = 'KUPIONO';
-        } else if (isPrereqLocked) {
-          btnText = 'ZABLOKOWANE';
+        // Cienka pionowa linia łącząca węzły jeden pod drugim (urywa się przy zablokowanym węźle)
+        if (idx > 0) {
+          const line = document.createElement('div');
+          const lineState = isUnlocked
+            ? 'solid'
+            : isPrereqLocked
+            ? 'broken'
+            : 'available-line';
+          line.className = `tree-connector ${lineState}`;
+          col.appendChild(line);
         }
 
+        const stateClass = isUnlocked
+          ? 'unlocked'
+          : canBuy
+          ? 'available'
+          : isPrereqLocked
+          ? 'locked'
+          : 'unaffordable';
+
+        const card = document.createElement('div');
+        card.className = `tree-node-card ${stateClass}`;
+
+        const costLabel = isUnlocked ? '✓ KUPIONO' : `${node.cost} XP`;
+
         card.innerHTML = `
-          <div class="tree-node-head">
-            <span class="tree-node-name">${node.name}</span>
-            <span class="tree-node-cost">${node.cost} XP</span>
+          <div class="tree-node-top">
+            <div class="tree-node-icon-badge">
+              <span class="tree-node-icon">${node.icon}</span>
+              <span class="tree-node-cost">${costLabel}</span>
+            </div>
           </div>
+          <div class="tree-node-name">${node.name}</div>
           <div class="tree-node-effect">${node.effect}</div>
-          <button class="tree-node-btn" ${!canBuy ? 'disabled' : ''}>${btnText}</button>
         `;
 
-        const btn = card.querySelector('button')!;
         if (canBuy) {
-          btn.addEventListener('click', () => {
+          card.addEventListener('click', () => {
             onUnlockNode(node.id);
           });
         }
 
         col.appendChild(card);
-      }
+      });
 
       this.treeBranchesGridEl.appendChild(col);
     }
@@ -607,6 +685,45 @@ export class UIManager {
     this.gameOverOverlay.classList.add('hidden');
   }
 
+  public showEpicBadge(word: EpicBadgeWord, icon: string): void {
+    const el = document.createElement('div');
+    el.className = 'epic-badge-toast';
+    el.innerHTML = `
+      <span class="epic-badge-icon">${icon}</span>
+      <span class="epic-badge-word">${word}</span>
+    `;
+    this.badgeStackEl.appendChild(el);
+    this.activeBadges.push({ el, life: 1.4 });
+  }
+
+  public clearEpicBadges(): void {
+    for (const b of this.activeBadges) {
+      b.el.remove();
+    }
+    this.activeBadges = [];
+  }
+
+  public tickToastAndPad(dt: number, gamepadConnected: boolean): void {
+    this.hudPadBadgeEl.classList.toggle('hidden', !gamepadConnected);
+    if (this.bannerTimer > 0) {
+      this.bannerTimer -= dt;
+      if (this.bannerTimer <= 0) {
+        this.bannerEl.classList.add('hidden');
+      }
+    }
+    for (let i = this.activeBadges.length - 1; i >= 0; i--) {
+      const badge = this.activeBadges[i];
+      badge.life -= dt;
+      if (badge.life <= 0.2) {
+        badge.el.style.opacity = String(Math.max(0, badge.life / 0.2));
+      }
+      if (badge.life <= 0) {
+        badge.el.remove();
+        this.activeBadges.splice(i, 1);
+      }
+    }
+  }
+
   public update(
     dt: number,
     player: Player,
@@ -619,8 +736,11 @@ export class UIManager {
     damageFlash: number,
     isTwoPlayer: boolean,
     activePlayerNum: 1 | 2,
-    level: LevelId = 1
+    level: LevelId = 1,
+    gamepadConnected = false
   ): void {
+    this.hudPadBadgeEl.classList.toggle('hidden', !gamepadConnected);
+
     // Player & Stage header
     this.playerLabelEl.textContent = isTwoPlayer
       ? `POJEDYNEK • GRACZ ${activePlayerNum}`
@@ -642,7 +762,24 @@ export class UIManager {
     const pctRemaining = Math.max(0, Math.min(100, (roundTimeRemaining / 120) * 100));
     this.dayBarEl.style.width = `${pctRemaining}%`;
 
-    if (level === 2) {
+    if (level === 3) {
+      if (stageNumber === 1) {
+        this.clockPanelEl.classList.add('night-mode');
+        this.dayIconEl.textContent = '🔦';
+        this.dayPhaseEl.textContent = 'ETAP 1/3 • TUNEL DWORCA';
+        this.nightOverlay.style.opacity = '0.78';
+      } else if (stageNumber === 2) {
+        this.clockPanelEl.classList.add('night-mode');
+        this.dayIconEl.textContent = '🚆';
+        this.dayPhaseEl.textContent = 'ETAP 2/3 • TORY KOLEJOWE';
+        this.nightOverlay.style.opacity = '0.62';
+      } else {
+        this.clockPanelEl.classList.add('night-mode');
+        this.dayIconEl.textContent = '🚉';
+        this.dayPhaseEl.textContent = 'ETAP 3/3 • HALA DWORCA';
+        this.nightOverlay.style.opacity = '0.82';
+      }
+    } else if (level === 2) {
       if (stageNumber === 1) {
         this.clockPanelEl.classList.add('night-mode');
         this.dayIconEl.textContent = '🔦';
@@ -691,14 +828,6 @@ export class UIManager {
       if (this.comboTimer <= 0) {
         this.comboCount = 0;
         this.comboPanelEl.classList.remove('active');
-      }
-    }
-
-    // Center Banner timer
-    if (this.bannerTimer > 0) {
-      this.bannerTimer -= dt;
-      if (this.bannerTimer <= 0) {
-        this.bannerEl.classList.add('hidden');
       }
     }
 

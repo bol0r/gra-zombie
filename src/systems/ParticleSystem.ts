@@ -103,9 +103,9 @@ export class ParticleSystem {
   public spawnDashAfterimage(pos: THREE.Vector3, rotY: number): void {
     const geo = new THREE.BoxGeometry(0.65, 1.45, 0.45);
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x00e5ff,
+      color: 0xd6c7b2,
       transparent: true,
-      opacity: 0.45
+      opacity: 0.36
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(pos).add(new THREE.Vector3(0, 0.8, 0));
@@ -116,11 +116,79 @@ export class ParticleSystem {
       mesh,
       velocity: new THREE.Vector3(0, 0.3, 0),
       gravity: 0,
-      life: 0.22,
-      maxLife: 0.22,
+      life: 0.2,
+      maxLife: 0.2,
       leaveBloodDecal: false,
       scaleDecay: true
     });
+  }
+
+  public spawnMuzzleFlash(pos: THREE.Vector3, dir: THREE.Vector3, color = 0xffb703): void {
+    const muzzlePos = pos.clone().addScaledVector(dir, 0.85);
+    muzzlePos.y = 1.05;
+    for (let i = 0; i < 6; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? color : 0xfff3b0 });
+      const mesh = new THREE.Mesh(this.cubeGeo, mat);
+      mesh.scale.set(0.38, 0.38, 0.9);
+      mesh.position.copy(muzzlePos);
+
+      const vel = dir
+        .clone()
+        .multiplyScalar(8 + Math.random() * 7)
+        .add(
+          new THREE.Vector3(
+            (Math.random() - 0.5) * 4.5,
+            (Math.random() - 0.5) * 2.5,
+            (Math.random() - 0.5) * 4.5
+          )
+        );
+
+      this.scene.add(mesh);
+      this.particles.push({
+        mesh,
+        velocity: vel,
+        gravity: 4,
+        life: 0.08 + Math.random() * 0.05,
+        maxLife: 0.13,
+        leaveBloodDecal: false,
+        scaleDecay: true
+      });
+    }
+  }
+
+  public spawnBulletTracer(from: THREE.Vector3, to: THREE.Vector3, color = 0xfbbf24): void {
+    const dist = from.distanceTo(to);
+    const dir = new THREE.Vector3().subVectors(to, from);
+    if (dir.lengthSq() > 0.0001) dir.normalize();
+
+    // Krótka smuga śrutu/pocisku (nie zygzak pioruna)
+    const startOffset = Math.min(dist * 0.25, 1.1);
+    const tracerLen = Math.min(dist - startOffset, 2.6);
+    const p1 = from.clone().addScaledVector(dir, startOffset);
+    const p2 = p1.clone().addScaledVector(dir, Math.max(0.45, tracerLen));
+    p1.y = 1.02;
+    p2.y = 1.02;
+
+    const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+    const mat = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.88
+    });
+    const line = new THREE.Line(geo, mat);
+    this.scene.add(line);
+
+    this.lines.push({
+      line,
+      mat,
+      life: 0.075,
+      maxLife: 0.075
+    });
+
+    // Ślad / iskry w punkcie trafienia
+    const impactPos = to.clone();
+    impactPos.y = 0.15;
+    this.spawnSparks(impactPos, color, 3);
   }
 
   public spawnShockwaveRing(pos: THREE.Vector3, maxRadius: number, color = 0xff5400, duration = 0.38): void {

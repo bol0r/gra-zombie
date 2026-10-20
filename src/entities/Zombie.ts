@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ObstacleCollider } from '../world/CityWorld';
-import { ZombieSkinId } from '../systems/UpgradeSystem';
+import { DIFFICULTY_CONFIGS, DifficultyId, ZombieSkinId } from '../systems/UpgradeSystem';
 
 export type ZombieType = 'walker' | 'runner' | 'tank' | 'exploder';
 
@@ -26,6 +26,7 @@ export class Zombie {
   public burnTimer = 0;
   public burnTickTimer = 0;
   public blindedTimer = 0;
+  public stunTimer = 0;
   private animPhase = Math.random() * Math.PI * 2;
 
   private bodyMat: THREE.MeshStandardMaterial;
@@ -42,7 +43,8 @@ export class Zombie {
     spawnPos: THREE.Vector3,
     streetNumber: number,
     isBoss = false,
-    skinId: ZombieSkinId = 'port'
+    skinId: ZombieSkinId = 'port',
+    difficulty: DifficultyId = 'normal'
   ) {
     this.type = type;
     this.isBoss = isBoss;
@@ -51,35 +53,36 @@ export class Zombie {
     this.mesh = new THREE.Group();
 
     const streetScale = 1 + (streetNumber - 1) * 0.16;
+    const diffCfg = DIFFICULTY_CONFIGS[difficulty];
 
     // XP values calibrated so a full 3-stage round (~12-16 kills + 8-XP orbs) grants ~140-175 XP (~30-40% of 450 XP node)
     switch (type) {
       case 'runner':
-        this.maxHp = Math.round(52 * streetScale);
+        this.maxHp = Math.round(52 * streetScale * diffCfg.zombieHpMult);
         this.baseSpeed = 5.7;
-        this.damage = 12;
+        this.damage = Math.round(12 * diffCfg.zombieDmgMult);
         this.radius = 0.48;
         this.xpValue = 6;
         break;
       case 'tank':
-        this.maxHp = isBoss ? 820 : Math.round(230 * streetScale);
+        this.maxHp = Math.round((isBoss ? 820 : 230 * streetScale) * diffCfg.zombieHpMult);
         this.baseSpeed = isBoss ? 3.1 : 2.65;
-        this.damage = isBoss ? 36 : 26;
+        this.damage = Math.round((isBoss ? 36 : 26) * diffCfg.zombieDmgMult);
         this.radius = isBoss ? 1.25 : 0.88;
         this.xpValue = isBoss ? 28 : 12;
         break;
       case 'exploder':
-        this.maxHp = Math.round(64 * streetScale);
+        this.maxHp = Math.round(64 * streetScale * diffCfg.zombieHpMult);
         this.baseSpeed = 4.1;
-        this.damage = 34;
+        this.damage = Math.round(34 * diffCfg.zombieDmgMult);
         this.radius = 0.62;
         this.xpValue = 7;
         break;
       case 'walker':
       default:
-        this.maxHp = Math.round(75 * streetScale);
+        this.maxHp = Math.round(75 * streetScale * diffCfg.zombieHpMult);
         this.baseSpeed = 3.3;
-        this.damage = 14;
+        this.damage = Math.round(14 * diffCfg.zombieDmgMult);
         this.radius = 0.52;
         this.xpValue = 5;
         break;
@@ -247,9 +250,16 @@ export class Zombie {
     if (this.blindedTimer > 0) {
       this.blindedTimer -= dt;
     }
+    if (this.stunTimer > 0) {
+      this.stunTimer -= dt;
+    }
 
     // Eye & UV blind state + skin eye overrides
-    if (this.blindedTimer > 0) {
+    if (this.stunTimer > 0) {
+      this.eyeMat.color.setHex(0xfde047);
+      this.eyeMat.emissive.setHex(0xd97706);
+      this.eyeMat.emissiveIntensity = 3.2;
+    } else if (this.blindedTimer > 0) {
       this.eyeMat.color.setHex(0xd896ff);
       this.eyeMat.emissive.setHex(0xb548ff);
       this.eyeMat.emissiveIntensity = 4.5;
@@ -313,14 +323,14 @@ export class Zombie {
 
     this.mesh.rotation.y = Math.atan2(dirToPlayer.x, dirToPlayer.z);
 
-    // Street 1 daytime zombies are slower; Night Volatiles are faster; UV Flashlight slows by 58%
+    // Street 1 daytime zombies are slower; Night Volatiles are faster; UV Flashlight slows by 58%; Stun freezes
     const streetMult = streetNumber === 1 ? 0.8 : isNight ? 1.38 : 1.0;
-    const blindMult = this.blindedTimer > 0 ? 0.42 : 1.0;
+    const blindMult = this.stunTimer > 0 ? 0.0 : this.blindedTimer > 0 ? 0.42 : 1.0;
     const effectiveSpeed = this.baseSpeed * streetMult * blindMult;
 
     if (distToPlayer > this.radius + 0.65) {
       this.position.addScaledVector(dirToPlayer, effectiveSpeed * dt);
-    } else if (this.attackCooldown <= 0) {
+    } else if (this.attackCooldown <= 0 && this.stunTimer <= 0) {
       if (this.type === 'exploder') {
         exploderTriggered = true;
       } else if (this.type === 'tank') {

@@ -342,18 +342,19 @@ html, body {
 /* Top Toast Banner (narrow, centered at top, max-width 420px, no full-width or huge glow) */
 .hud-banner {
   position: fixed;
-  top: 76px;
+  top: 22px;
   left: 50%;
   transform: translateX(-50%);
   width: auto;
   max-width: 420px;
-  background: rgba(16, 18, 26, 0.92);
+  background: rgba(16, 18, 26, 0.94);
   border: 1px solid rgba(255, 90, 90, 0.45);
   border-radius: 7px;
   padding: 8px 14px;
   text-align: center;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
-  z-index: 16;
+  z-index: 45;
+  pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
@@ -620,6 +621,91 @@ html, body {
   color: #dbe4ee;
 }
 
+/* Top-Right Epic Kill Badges Stack (max ~220px, disappears after 1.4s, never covers timer) */
+.hud-badge-stack {
+  position: fixed;
+  top: 96px;
+  right: 24px;
+  width: 210px;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 22;
+  pointer-events: none;
+}
+
+.epic-badge-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  background: rgba(14, 16, 24, 0.92);
+  border: 1px solid rgba(255, 209, 92, 0.65);
+  border-left: 3px solid var(--accent-gold);
+  border-radius: 6px;
+  padding: 5px 11px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
+  animation: badgeSlideIn 0.14s ease-out;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.epic-badge-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.epic-badge-word {
+  font-family: var(--font-tech);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #fff3b0;
+  white-space: nowrap;
+}
+
+@keyframes badgeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Difficulty Buttons */
+.diff-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 14px;
+}
+
+.diff-btn.active-diff {
+  border-width: 2px;
+  border-color: var(--accent-gold);
+}
+
+.diff-title {
+  font-family: var(--font-tech);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+}
+
+.diff-desc {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #dbe4ee;
+  line-height: 1.25;
+}
 /* Modals */
 .modal-overlay {
   position: fixed;
@@ -786,6 +872,19 @@ html, body {
   box-shadow: 0 0 22px rgba(0, 180, 255, 0.35);
 }
 
+.cta-btn.station-btn {
+  background: linear-gradient(135deg, #3a0ca3, #b5179e);
+  border-color: #f72585;
+  box-shadow: 0 0 22px rgba(181, 23, 158, 0.35);
+}
+
+.cta-btn.pad-focus,
+.sub-btn.pad-focus {
+  outline: 2px solid #00e5ff;
+  outline-offset: 2px;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.65);
+}
+
 .cta-btn:hover {
   transform: translateY(-2px) scale(1.01);
   filter: brightness(1.12);
@@ -834,6 +933,20 @@ html, body {
   display: flex;
   align-items: center;
   gap: 7px;
+}
+
+.control-item.control-item-wide {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: #93e5ff;
+}
+
+.currency-pill.pad-pill {
+  background: rgba(57, 255, 122, 0.14);
+  border: 1px solid rgba(57, 255, 122, 0.55);
+  color: #39ff7a;
+  font-weight: 800;
+  letter-spacing: 1px;
 }
 
 .control-item .k {
@@ -1014,12 +1127,12 @@ html, body {
 
 .tree-branches-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 12px;
-  max-height: 54vh;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+  max-height: 58vh;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 2px;
 }
 
 /* Dog Mod Selection List */
@@ -1061,72 +1174,162 @@ html, body {
 }
 
 .tree-branch-col {
-  background: rgba(0, 0, 0, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 9px;
+  padding: 8px 7px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: stretch;
+  gap: 0;
 }
 
 .tree-branch-title {
   font-family: var(--font-tech);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
   color: var(--accent-gold);
-  min-height: 34px;
+  min-height: 26px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   border-bottom: 1px solid rgba(255, 209, 92, 0.25);
-  padding-bottom: 6px;
+  padding-bottom: 5px;
+  margin-bottom: 6px;
+}
+
+/* Vertical connector line between tree nodes */
+.tree-connector {
+  width: 2px;
+  height: 16px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.tree-connector.solid {
+  background: linear-gradient(180deg, #39ff7a, #00e5ff);
+  box-shadow: 0 0 6px rgba(57, 255, 122, 0.55);
+}
+
+.tree-connector.available-line {
+  background: linear-gradient(180deg, #39ff7a, #ffd166);
+}
+
+/* Zablokowany węzeł: linia do niego urywa się */
+.tree-connector.broken {
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0.45) 0%,
+    rgba(148, 163, 184, 0.45) 42%,
+    transparent 42%,
+    transparent 100%
+  );
 }
 
 .tree-node-card {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  padding: 6px 7px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
+/* Kupiony węzeł jest jasny */
 .tree-node-card.unlocked {
   border-color: #39ff7a;
-  background: rgba(57, 255, 122, 0.08);
+  background: rgba(57, 255, 122, 0.15);
+  box-shadow: 0 0 12px rgba(57, 255, 122, 0.25);
+  cursor: default;
 }
 
+/* Dostępny do kupienia pulsuje */
+.tree-node-card.available {
+  border-color: var(--accent-gold);
+  background: rgba(255, 209, 92, 0.12);
+  animation: pulseTreeNode 1.15s infinite alternate;
+}
+
+@keyframes pulseTreeNode {
+  from {
+    box-shadow: 0 0 4px rgba(255, 209, 92, 0.25);
+    border-color: rgba(255, 209, 92, 0.65);
+  }
+  to {
+    box-shadow: 0 0 14px rgba(255, 209, 92, 0.75);
+    border-color: #fff3b0;
+  }
+}
+
+/* Zablokowany jest przygaszony */
 .tree-node-card.locked {
-  opacity: 0.62;
+  opacity: 0.42;
+  filter: grayscale(0.5);
+  cursor: not-allowed;
 }
 
-.tree-node-head {
+.tree-node-card.unaffordable {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.tree-node-top {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: baseline;
-  gap: 6px;
+  gap: 4px;
 }
 
-.tree-node-name {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 900;
-  color: #ffffff;
+.tree-node-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 5px;
+  padding: 2px 5px;
+}
+
+.tree-node-card.unlocked .tree-node-icon-badge {
+  border-color: rgba(57, 255, 122, 0.65);
+  background: rgba(57, 255, 122, 0.16);
+}
+
+.tree-node-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .tree-node-cost {
   font-family: var(--font-tech);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   color: var(--accent-gold);
   white-space: nowrap;
 }
 
+.tree-node-card.unlocked .tree-node-cost {
+  color: #39ff7a;
+}
+
+.tree-node-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
 .tree-node-effect {
-  font-size: 13px;
+  font-size: 10.5px;
   color: #cbd5e1;
-  line-height: 1.3;
+  line-height: 1.22;
 }
 
 .tree-node-btn {

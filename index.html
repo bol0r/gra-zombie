@@ -37,6 +37,7 @@
                 <span class="curr-label">MONETY:</span>
                 <span class="curr-val" id="hud-coins">0</span>
               </div>
+              <div class="currency-pill pad-pill hidden" id="hud-pad-badge">🎮 PAD</div>
             </div>
           </div>
 
@@ -66,6 +67,9 @@
           <div class="banner-title" id="hud-banner-title">ETAP 1/3: KORDON</div>
           <div class="banner-sub" id="hud-banner-sub">Przebij się przez 3 etapy przed upływem 2:00</div>
         </div>
+
+        <!-- Top-Right Epic Kill Badges Stack (max ~220px, disappears after 1.4s, never covers timer) -->
+        <div id="hud-badge-stack" class="hud-badge-stack"></div>
 
         <!-- Bottom HUD: Health, Stamina, Special (Rzeź), Stage Crest, Weapons -->
         <div class="hud-bottom">
@@ -174,6 +178,7 @@
                 </div>
                 <button id="btn-menu-dog" class="sub-btn highlight-btn hidden">MODYFIKACJA PSA: KIEŁ</button>
                 <div class="menu-sub-row">
+                  <button id="btn-options" class="sub-btn">OPCJE</button>
                   <button id="btn-intro" class="sub-btn">INTRO</button>
                   <button id="btn-credits" class="sub-btn">TWÓRCY</button>
                 </div>
@@ -187,6 +192,7 @@
                 <div class="control-item"><span class="k">SPACJA</span> Dash / Przeskok</div>
                 <div class="control-item"><span class="k">E / F</span> Rzeź (pełny pasek)</div>
                 <div class="control-item"><span class="k">ESC</span> Pauza / Drzewko</div>
+                <div class="control-item control-item-wide"><span class="k">PAD</span> LS ruch • RS cel • RT cięcie • LT strzał • A dash • X Rzeź • Start pauza</div>
               </div>
             </div>
 
@@ -197,6 +203,7 @@
                 <div class="hs-level-tabs">
                   <button id="btn-hs-lvl1" class="hs-tab-btn active">P1: PORT</button>
                   <button id="btn-hs-lvl2" class="hs-tab-btn">P2: SZPITAL</button>
+                  <button id="btn-hs-lvl3" class="hs-tab-btn">P3: DWORZEC</button>
                 </div>
               </div>
               <div class="highscore-sub">Ukończona runda (krótszy czas) &gt; Nieukończona (dłuższe przeżycie)</div>
@@ -212,12 +219,39 @@
           <div class="game-badge" id="level-select-badge">WYBÓR POZIOMU • 3 ETAPY • 2:00</div>
           <h1 class="game-title">WYBIERZ <span>POZIOM</span></h1>
           <p class="game-subtitle">
-            Oba poziomy mają trzy etapy, jedną bramę naraz i wspólny licznik 2:00 na całą rundę.
+            Każdy poziom ma trzy etapy, jedną bramę naraz i wspólny licznik 2:00 na całą rundę.
           </p>
           <div class="menu-buttons-list">
             <button id="btn-select-level-1" class="cta-btn">POZIOM 1 — STARY PORT</button>
             <button id="btn-select-level-2" class="cta-btn secondary">POZIOM 2 — SZPITAL DIXONA</button>
+            <button id="btn-select-level-3" class="cta-btn station-btn">POZIOM 3 — DWORZEC</button>
             <button id="btn-level-select-back" class="sub-btn">POWRÓT DO MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Difficulty Selection Modal (Po wyborze poziomu, pamiętana w localStorage) -->
+      <div id="difficulty-select-overlay" class="modal-overlay hidden">
+        <div class="start-card compact-modal-card">
+          <div class="game-badge" id="difficulty-select-badge">POZIOM 1 • WYBÓR TRUDNOŚCI</div>
+          <h1 class="game-title">POZIOM <span>TRUDNOŚCI</span></h1>
+          <p class="game-subtitle" id="difficulty-select-sub">
+            Wybrana trudność zapisuje się na stałe. Zatwierdź [Enter / A].
+          </p>
+          <div class="menu-buttons-list">
+            <button id="btn-diff-easy" class="sub-btn diff-btn" data-diff="easy">
+              <span class="diff-title">ŁATWY</span>
+              <span class="diff-desc">Bazowe życie i obrażenia, pełna amunicja</span>
+            </button>
+            <button id="btn-diff-normal" class="cta-btn diff-btn" data-diff="normal">
+              <span class="diff-title">NORMALNY (DOMYŚLNY)</span>
+              <span class="diff-desc">Zombie 1.45× HP, 1.3× obrażeń • Gracz 0.8× obrażeń • ½ amunicji</span>
+            </button>
+            <button id="btn-diff-hard" class="cta-btn station-btn diff-btn" data-diff="hard">
+              <span class="diff-title">TRUDNY</span>
+              <span class="diff-desc">Zombie 1.9× HP, 1.6× obrażeń • Gracz 0.65× • ¼ amunicji, słabsze apteczki</span>
+            </button>
+            <button id="btn-diff-back" class="sub-btn">POWRÓT DO POZIOMÓW</button>
           </div>
         </div>
       </div>
@@ -235,6 +269,19 @@
         </div>
       </div>
 
+      <!-- Options -->
+      <div id="options-overlay" class="modal-overlay hidden">
+        <div class="start-card pause-card compact-modal-card">
+          <div class="game-badge">OPCJE</div>
+          <h1 class="game-title">OPCJE</h1>
+          <p class="game-subtitle">Filtr VHS dokłada linie, szum i lekkie pływanie klatki. Wyłączenie zostawia zwykły obraz.</p>
+          <div class="menu-buttons-list">
+            <button id="btn-vhs-toggle" class="cta-btn">FILTR VHS: WŁĄCZONY</button>
+            <button id="btn-options-back" class="sub-btn">POWRÓT</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Pause Modal (Esc) -->
       <div id="pause-overlay" class="modal-overlay hidden">
         <div class="start-card pause-card compact-modal-card">
@@ -247,6 +294,7 @@
             <button id="btn-pause-resume" class="cta-btn">WZNÓW</button>
             <button id="btn-pause-tree" class="sub-btn highlight-btn">DRZEWKO</button>
             <button id="btn-pause-dog" class="sub-btn highlight-btn hidden">MODYFIKACJA PSA: KIEŁ</button>
+            <button id="btn-pause-options" class="sub-btn">OPCJE</button>
             <button id="btn-pause-menu" class="sub-btn">WYJDŹ DO MENU</button>
           </div>
         </div>

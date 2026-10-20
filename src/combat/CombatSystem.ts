@@ -7,6 +7,7 @@ import { SoundSystem } from '../systems/SoundSystem';
 import { HitStopManager } from '../core/HitStopManager';
 import { IsometricCamera } from '../core/IsometricCamera';
 import { UIManager } from '../systems/UIManager';
+import { DifficultyId } from '../systems/UpgradeSystem';
 
 function normalizeAngle(rad: number): number {
   while (rad > Math.PI) rad -= Math.PI * 2;
@@ -15,6 +16,9 @@ function normalizeAngle(rad: number): number {
 }
 
 export class CombatSystem {
+  public activeDifficulty: DifficultyId = 'normal';
+  private frontalCritCounter = 0;
+
   constructor(
     private player: Player,
     private world: CityWorld,
@@ -26,11 +30,30 @@ export class CombatSystem {
     private onZombieKilled: (zombie: Zombie, cause: string) => void
   ) {}
 
+  private rollFrontalCritHeadshot(): boolean {
+    this.frontalCritCounter++;
+    if (this.activeDifficulty === 'easy') {
+      // Na łatwym wypada częściej (~raz na 5-6 krytyków od frontu)
+      if (this.frontalCritCounter >= 6 || Math.random() < 0.2) {
+        this.frontalCritCounter = 0;
+        return true;
+      }
+      return false;
+    }
+    // Na normalnym i trudnym wypada rzadziej: mniej więcej raz na kilkanaście (12-15) krytyków od frontu
+    if (this.frontalCritCounter >= 14 || (this.frontalCritCounter >= 9 && Math.random() < 0.08)) {
+      this.frontalCritCounter = 0;
+      return true;
+    }
+    return false;
+  }
+
   public performMeleeAttack(zombies: Zombie[], stageNumber = 1): void {
     const weapon = this.player.meleeWeapon;
     if (this.player.attackCooldown > 0) return;
 
     this.player.attackCooldown = weapon.cooldown / this.player.attackSpeedMultiplier;
+    this.player.stamina = Math.max(0, this.player.stamina - 4);
 
     // Advance swing side and get exact yaw cone bounds matching the blade animation
     const swingSide = this.player.prepareNextSwing();
@@ -72,12 +95,18 @@ export class CombatSystem {
         const isCrit = Math.random() < this.player.critChance;
         if (isCrit) anyCrit = true;
 
-        const dmg = Math.round(
+        const isFront = Math.abs(relYaw) <= Math.PI * 0.3;
+        const isHeadshot = isCrit && isFront && !z.isBoss && this.rollFrontalCritHeadshot();
+
+        let dmg = Math.round(
           weapon.damage *
             this.player.damageMultiplier *
             dawnStageMult *
             (isCrit ? 1.85 : 1.0)
         );
+        if (isHeadshot) {
+          dmg = Math.max(dmg, z.hp + 10);
+        }
         const radialDir = dist > 0.001 ? toZ.clone().normalize() : forward.clone();
         const knockDir = radialDir.addScaledVector(sweepTangent, 0.38).normalize();
 
@@ -88,7 +117,19 @@ export class CombatSystem {
         // Trafienie: +6 do paska special (z uwzględnieniem Adrenaliny w addSpecial)
         this.player.addSpecial(6);
 
-        this.damageZombie(z, dmg, knockDir, knockForce, isCrit, zombies);
+        if (weapon.stunDuration) {
+          z.stunTimer = Math.max(z.stunTimer, z.isBoss ? weapon.stunDuration * 0.45 : weapon.stunDuration);
+        }
+
+        this.damageZombie(
+          z,
+          dmg,
+          knockDir,
+          knockForce,
+          isCrit,
+          zombies,
+          isHeadshot ? 'headshot' : 'combat'
+        );
 
         if (weapon.burnDamage) {
           z.burnTimer = 3.2;
@@ -119,6 +160,128 @@ export class CombatSystem {
       this.sound.playHit(anyCrit, Boolean(weapon.chainLightning));
       this.hitStop.triggerHitStop(anyCrit ? 0.055 : 0.032);
       this.camera.addShake(anyCrit ? 0.36 : 0.2);
+    }
+  }
+
+  public performChargedMeleeAttack(zombies: Zombie[], stageNumber = 1): void {
+    const weapon = this.player.meleeWeapon;
+    if (this.player.attackCooldown > 0) return;
+
+    const staminaCost = 32;
+    if (this.player.stamina < staminaCost) {
+      this.ui.spawnFloatingText(
+        this.player.position.clone().add(new THREE.Vector3(0, 2.0, 0)),
+        'BRAK STAMINY!',
+        '#d97706'
+      );
+      this.performMeleeAttack(zombies, stageNumber);
+      return;
+    }
+
+    this.player.stamina = Math.max(0, this.player.stamina - staminaCost);
+    this.player.attackCooldown = (weapon.cooldown * 1.35) / this.player.attackSpeedMultiplier;
+    this.player.prepareChargedSwing();
+
+    this.sound.playSlash(Boolean(weapon.chainLightning), Boolean(weapon.burnDamage));
+
+    const forward = new THREE.Vector3(
+      Math.sin(this.player.aimAngle),
+      0,
+      Math.cos(this.player.aimAngle)
+    );
+    const dawnStageMult =
+      this.player.dawnBonusStage12 && (stageNumber === 1 || stageNumber === 2) ? 1.2 : 1.0;
+
+    // Młotek: naładowany młot wbija falę w ziemię zamiast koła
+    if (weapon.chargedSlamWave) {
+      const slamCenter = this.player.position.clone().addScaledVector(forward, 1.55);
+      const slamRadius = 3.85 * this.player.rangeMultiplier;
+
+      this.particles.spawnShockwaveRing(slamCenter, slamRadius, 0xd97706, 0.38);
+      this.particles.spawnDustPuff(slamCenter, 14);
+      this.particles.spawnSparks(slamCenter, 0xf59e0b, 16);
+      this.camera.addShake(0.58);
+      this.hitStop.triggerHitStop(0.06);
+
+      for (const z of zombies) {
+        if (z.isDead) continue;
+        const toZ = new THREE.Vector3().subVectors(z.position, slamCenter);
+        toZ.y = 0;
+        const dist = toZ.length();
+        if (dist > slamRadius + z.radius) continue;
+
+        const isCrit = Math.random() < this.player.critChance + 0.15;
+        const dmg = Math.round(
+          weapon.damage * 1.65 * this.player.damageMultiplier * dawnStageMult * (isCrit ? 1.5 : 1.0)
+        );
+        const knockDir = dist > 0.01 ? toZ.normalize() : forward.clone();
+        const knockForce = weapon.knockback * 1.45;
+
+        z.stunTimer = Math.max(z.stunTimer, z.isBoss ? 0.9 : 1.85);
+        this.player.addSpecial(8);
+        this.damageZombie(z, dmg, knockDir, knockForce, isCrit, zombies, 'combat');
+      }
+
+      for (const barrel of this.world.barrels) {
+        if (barrel.exploded) continue;
+        if (barrel.position.distanceTo(slamCenter) <= slamRadius + barrel.radius) {
+          this.detonateBarrel(barrel, zombies);
+        }
+      }
+      return;
+    }
+
+    // Katana / Topór / Maczeta: uderzenie dookoła siebie (360°), mocniej, zużywa staminę
+    const spinRange = weapon.range * 1.22 * this.player.rangeMultiplier;
+    this.particles.spawnShockwaveRing(this.player.position, spinRange, weapon.trailColor, 0.28);
+
+    let hitCount = 0;
+    let anyCrit = false;
+
+    for (const z of zombies) {
+      if (z.isDead) continue;
+      const toZ = new THREE.Vector3().subVectors(z.position, this.player.position);
+      toZ.y = 0;
+      const dist = toZ.length();
+      if (dist > spinRange + z.radius) continue;
+
+      hitCount++;
+      const isCrit = Math.random() < this.player.critChance + 0.12;
+      if (isCrit) anyCrit = true;
+
+      const dmg = Math.round(
+        weapon.damage * 1.6 * this.player.damageMultiplier * dawnStageMult * (isCrit ? 1.65 : 1.0)
+      );
+      const knockDir = dist > 0.01 ? toZ.normalize() : forward.clone();
+      let knockForce = weapon.knockback * 1.4;
+      if (this.player.crowndMeleeKnockback) knockForce *= 1.38;
+
+      this.player.addSpecial(8);
+      this.damageZombie(z, dmg, knockDir, knockForce, isCrit, zombies, 'combat');
+
+      if (weapon.burnDamage) {
+        z.burnTimer = 4.0;
+        this.particles.spawnSparks(z.position, 0xff5400, 10);
+      }
+
+      if (weapon.chainLightning) {
+        this.triggerChainLightning(z, zombies, Math.round(dmg * 0.6));
+      }
+    }
+
+    for (const barrel of this.world.barrels) {
+      if (barrel.exploded) continue;
+      if (barrel.position.distanceTo(this.player.position) <= spinRange + barrel.radius) {
+        this.detonateBarrel(barrel, zombies);
+      }
+    }
+
+    if (hitCount > 0) {
+      this.sound.playHit(anyCrit, Boolean(weapon.chainLightning));
+      this.hitStop.triggerHitStop(0.055);
+      this.camera.addShake(0.45);
+    } else {
+      this.camera.addShake(0.22);
     }
   }
 
@@ -161,13 +324,21 @@ export class CombatSystem {
       return;
     }
 
-    this.player.ammo--;
+    const ammoUsed = Math.min(this.player.ammo, weapon.ammoCost);
+    this.player.ammo -= ammoUsed;
     this.player.shootCooldown = weapon.cooldown / this.player.attackSpeedMultiplier;
     this.sound.playShotgun();
-    this.camera.addShake(0.32);
-    this.camera.punchZoom(0.25);
+    this.camera.addShake(weapon.id === 'sawed_off' || weapon.id === 'shotgun' ? 0.38 : 0.22);
+    this.camera.punchZoom(0.2);
 
     const origin = this.player.position.clone().add(new THREE.Vector3(0, 0.2, 0));
+    const aimDir = new THREE.Vector3(
+      Math.sin(this.player.aimAngle),
+      0,
+      Math.cos(this.player.aimAngle)
+    );
+    this.particles.spawnMuzzleFlash(origin, aimDir, weapon.color);
+
     let gainedHitSpecial = false;
 
     for (let p = 0; p < weapon.pellets; p++) {
@@ -215,18 +386,33 @@ export class CombatSystem {
         }
         endPoint.copy(origin).addScaledVector(dir, closestDist);
         const isCrit = Math.random() < this.player.critChance;
-        const dmg = Math.round(
+        const toHit = new THREE.Vector3().subVectors(closestZombie.position, this.player.position);
+        const relYaw = Math.abs(normalizeAngle(Math.atan2(toHit.x, toHit.z) - this.player.aimAngle));
+        const isHeadshot =
+          isCrit && relYaw <= Math.PI * 0.3 && !closestZombie.isBoss && this.rollFrontalCritHeadshot();
+        let dmg = Math.round(
           weapon.damage *
             this.player.damageMultiplier *
             this.player.rangedDamageMultiplier *
             (isCrit ? 1.75 : 1.0)
         );
+        if (isHeadshot) {
+          dmg = Math.max(dmg, closestZombie.hp + 10);
+        }
         const knockForce =
           weapon.knockback * (isCrit && this.player.bubCritKnockback ? 1.4 : 1.0);
-        this.damageZombie(closestZombie, dmg, dir, knockForce, isCrit, zombies);
+        this.damageZombie(
+          closestZombie,
+          dmg,
+          dir,
+          knockForce,
+          isCrit,
+          zombies,
+          isHeadshot ? 'headshot' : 'combat'
+        );
       }
 
-      this.particles.spawnLightningArc(origin, endPoint, weapon.color);
+      this.particles.spawnBulletTracer(origin, endPoint, weapon.color);
     }
   }
 
@@ -282,7 +468,7 @@ export class CombatSystem {
           dir.y = 0;
           if (dir.lengthSq() > 0.001) dir.normalize();
           force = Math.max(baseForce, 34);
-          this.particles.spawnLightningArc(z.position, bestSpike.position, 0xffbe0b);
+          this.particles.spawnSparks(bestSpike.position, 0xffbe0b, 10);
         }
       }
 
@@ -434,6 +620,11 @@ export class CombatSystem {
     cause = 'combat'
   ): void {
     if (zombie.isDead) return;
+
+    // Boss na trudnym nie może paść od dwóch cięć (maks. 34% HP na pojedyncze uderzenie)
+    if (zombie.isBoss && this.activeDifficulty === 'hard') {
+      amount = Math.min(amount, Math.floor(zombie.maxHp * 0.34));
+    }
 
     zombie.hp -= amount;
     zombie.applyKnockback(knockDir, knockForce);
