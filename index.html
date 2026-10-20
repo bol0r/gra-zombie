@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DEAD LIGHT: RZEŹ — Isometric 3D Zombie Hack & Slash</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game-canvas"></canvas>
+
+      <!-- Damage flash / Low HP vignette overlay -->
+      <div id="damage-overlay"></div>
+      <div id="night-overlay"></div>
+
+      <!-- Floating combat text container -->
+      <div id="floating-texts"></div>
+
+      <!-- HUD -->
+      <div id="hud">
+        <!-- Top Bar: Stage Number (1/3..3/3), Single 2:00 Round Timer, Currencies & Combo -->
+        <div class="hud-top">
+          <div class="wave-panel">
+            <div class="panel-label" id="hud-player-label">KURIER PRÓBEK</div>
+            <div class="wave-number" id="hud-street">ETAP 1 / 3</div>
+            <div class="wave-sub" id="hud-street-sub">Kordon • Do bramy: 60m</div>
+            <div class="hud-currencies-row">
+              <div class="currency-pill xp-pill">
+                <span class="curr-label">XP DRZEWKA:</span>
+                <span class="curr-val" id="hud-tree-xp">0</span>
+              </div>
+              <div class="currency-pill coin-pill">
+                <span class="curr-label">MONETY:</span>
+                <span class="curr-val" id="hud-coins">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="clock-panel" id="hud-clock-panel">
+            <div class="clock-header">
+              <span class="clock-icon" id="hud-day-icon">☀️</span>
+              <span class="clock-phase" id="hud-day-phase">ETAP 1/3 • KORDON (DZIEŃ)</span>
+            </div>
+            <div class="street-timer-big" id="hud-street-timer">2:00</div>
+            <div class="clock-bar-bg">
+              <div class="clock-bar-fill" id="hud-day-bar"></div>
+            </div>
+            <div class="clock-warning" id="hud-night-warning">⚠️ GASNĄ LATARNIE — VOLATILE W CIEMNOŚCI!</div>
+          </div>
+
+          <div class="combo-panel" id="hud-combo-panel">
+            <div class="combo-count" id="hud-combo-count">x12</div>
+            <div class="combo-label">RZEŹ KOMBO</div>
+            <div class="combo-bar-bg">
+              <div class="combo-bar-fill" id="hud-combo-bar"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Banner (Stage announcements, Boss, Encounters) -->
+        <div id="hud-banner" class="hud-banner hidden">
+          <div class="banner-title" id="hud-banner-title">ETAP 1/3: KORDON</div>
+          <div class="banner-sub" id="hud-banner-sub">Przebij się przez 3 etapy przed upływem 2:00</div>
+        </div>
+
+        <!-- Bottom HUD: Health, Stamina, Special (Rzeź), Stage Crest, Weapons -->
+        <div class="hud-bottom">
+          <div class="bars-row">
+            <!-- Health, Stamina & Special Left Cluster -->
+            <div class="vitals-cluster">
+              <div class="stat-bar hp-bar">
+                <div class="bar-label">
+                  <span>ŻYCIE (HP)</span>
+                  <span id="hud-hp-text">100 / 100</span>
+                </div>
+                <div class="bar-track">
+                  <div class="bar-fill hp-fill" id="hud-hp-fill"></div>
+                </div>
+              </div>
+
+              <div class="stat-bar stamina-bar">
+                <div class="bar-label">
+                  <span>STAMINA (DASH)</span>
+                  <span id="hud-stamina-text">100 / 100</span>
+                </div>
+                <div class="bar-track">
+                  <div class="bar-fill stamina-fill" id="hud-stamina-fill"></div>
+                </div>
+              </div>
+
+              <div class="stat-bar special-bar" id="hud-special-container">
+                <div class="bar-label">
+                  <span id="hud-special-label">SPECIAL — RZEŹ [E / F]</span>
+                  <span id="hud-special-text">0 / 100</span>
+                </div>
+                <div class="bar-track">
+                  <div class="bar-fill special-fill" id="hud-special-fill"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Center Stage Crest -->
+            <div class="level-crest">
+              <div class="crest-lvl-label">ETAP</div>
+              <div class="crest-lvl-num" id="hud-level">1/3</div>
+              <div class="crest-kills" id="hud-kills">☠️ 0</div>
+            </div>
+
+            <!-- Weapons & Controls Right Cluster -->
+            <div class="weapons-cluster">
+              <div class="weapon-slot active" id="slot-melee">
+                <div class="slot-key">LPM</div>
+                <div class="slot-icon" id="hud-melee-icon">⚔️</div>
+                <div class="slot-info">
+                  <div class="slot-name" id="hud-melee-name">Katana Rozpruwacza</div>
+                  <div class="slot-sub" id="hud-melee-desc">Szerokie cięcie</div>
+                </div>
+              </div>
+
+              <div class="weapon-slot" id="slot-ranged">
+                <div class="slot-key">PPM / Q</div>
+                <div class="slot-icon" id="hud-ranged-icon">🔫</div>
+                <div class="slot-info">
+                  <div class="slot-name" id="hud-ranged-name">Strzelba Bojowa</div>
+                  <div class="slot-sub" id="hud-ammo-text">AMUNICJA: 28</div>
+                </div>
+              </div>
+
+              <div class="skill-badges">
+                <div class="skill-badge" id="badge-dash">
+                  <span class="key-pill">SPACJA</span>
+                  <span class="skill-lbl">Dash / Skok</span>
+                </div>
+                <div class="skill-badge" id="badge-special">
+                  <span class="key-pill">E / F</span>
+                  <span class="skill-lbl">Rzeź (100%)</span>
+                </div>
+                <div class="skill-badge" id="badge-pause">
+                  <span class="key-pill">ESC</span>
+                  <span class="skill-lbl">Pauza / Drzewko</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Menu Modal -->
+      <div id="start-overlay" class="modal-overlay hidden">
+        <div class="start-card menu-wide-card">
+          <div class="game-badge">DEAD NET LABS • STARY PORT</div>
+          <h1 class="game-title">DEAD LIGHT<span>: RZEŹ</span></h1>
+          <p class="game-subtitle">
+            Miasto odcięło Stary Port po nieudanym teście światła Dead Net Labs. Masz dokładnie <strong>2:00</strong> na całą rundę trzech etapów: kordon, wygaszane latarnie i plac laboratorium z bossem.
+          </p>
+
+          <div class="menu-currencies-banner">
+            <span>XP DRZEWKA: <strong id="menu-tree-xp">0</strong></span>
+            <span>MONETY: <strong id="menu-coins">0</strong></span>
+          </div>
+
+          <div class="menu-main-grid">
+            <div class="menu-left-col">
+              <div class="menu-buttons-list">
+                <button id="btn-1p" class="cta-btn">NOWA RZEŹ (1 GRACZ)</button>
+                <button id="btn-2p" class="cta-btn secondary">POJEDYNEK (2 GRACZY)</button>
+                <div class="menu-sub-row">
+                  <button id="btn-menu-tree" class="sub-btn highlight-btn">DRZEWKO</button>
+                  <button id="btn-menu-shop" class="sub-btn highlight-btn">SKLEPIK</button>
+                </div>
+                <button id="btn-menu-dog" class="sub-btn highlight-btn hidden">MODYFIKACJA PSA: KIEŁ</button>
+                <div class="menu-sub-row">
+                  <button id="btn-intro" class="sub-btn">INTRO</button>
+                  <button id="btn-credits" class="sub-btn">TWÓRCY</button>
+                </div>
+              </div>
+
+              <div class="controls-grid">
+                <div class="control-item"><span class="k">W A S D</span> Ruch postaci</div>
+                <div class="control-item"><span class="k">MYSZ</span> Celowanie + Latarka</div>
+                <div class="control-item"><span class="k">LPM</span> Cięcie bronią białą</div>
+                <div class="control-item"><span class="k">PPM / Q</span> Strzał z broni palnej</div>
+                <div class="control-item"><span class="k">SPACJA</span> Dash / Przeskok</div>
+                <div class="control-item"><span class="k">E / F</span> Rzeź (pełny pasek)</div>
+                <div class="control-item"><span class="k">ESC</span> Pauza / Drzewko</div>
+              </div>
+            </div>
+
+            <!-- High Score Top 10 Panel -->
+            <div class="highscore-panel">
+              <div class="highscore-header-row">
+                <div class="highscore-header">HIGH SCORE — TOP 10</div>
+                <div class="hs-level-tabs">
+                  <button id="btn-hs-lvl1" class="hs-tab-btn active">P1: PORT</button>
+                  <button id="btn-hs-lvl2" class="hs-tab-btn">P2: SZPITAL</button>
+                </div>
+              </div>
+              <div class="highscore-sub">Ukończona runda (krótszy czas) &gt; Nieukończona (dłuższe przeżycie)</div>
+              <div id="highscore-list" class="highscore-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Level Selection Modal (Wybór poziomu po „Nowa rzeź” i po „Pojedynek”) -->
+      <div id="level-select-overlay" class="modal-overlay hidden">
+        <div class="start-card compact-modal-card">
+          <div class="game-badge" id="level-select-badge">WYBÓR POZIOMU • 3 ETAPY • 2:00</div>
+          <h1 class="game-title">WYBIERZ <span>POZIOM</span></h1>
+          <p class="game-subtitle">
+            Oba poziomy mają trzy etapy, jedną bramę naraz i wspólny licznik 2:00 na całą rundę.
+          </p>
+          <div class="menu-buttons-list">
+            <button id="btn-select-level-1" class="cta-btn">POZIOM 1 — STARY PORT</button>
+            <button id="btn-select-level-2" class="cta-btn secondary">POZIOM 2 — SZPITAL DIXONA</button>
+            <button id="btn-level-select-back" class="sub-btn">POWRÓT DO MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dog Modification Modal (Wybór modyfikacji psa z menu lub pauzy) -->
+      <div id="dog-mod-overlay" class="modal-overlay hidden">
+        <div class="start-card compact-modal-card">
+          <div class="game-badge">PIES • AUTOMAT CO 8 SEKUND</div>
+          <h1 class="game-title">MODYFIKACJA <span>PSA</span></h1>
+          <p class="game-subtitle">
+            W rundzie działa jedna wybrana modyfikacja. Pies sam wykonuje skok na cooldownie 8 s.
+          </p>
+          <div id="dog-mod-list" class="dog-mod-list"></div>
+          <button id="btn-dog-mod-back" class="sub-btn">POWRÓT</button>
+        </div>
+      </div>
+
+      <!-- Pause Modal (Esc) -->
+      <div id="pause-overlay" class="modal-overlay hidden">
+        <div class="start-card pause-card compact-modal-card">
+          <div class="game-badge">PAUZA • LICZNIK ZATRZYMANY</div>
+          <h1 class="game-title">PAUZA</h1>
+          <p class="game-subtitle" id="pause-status-text">
+            Pozostały czas rundy: 2:00 • Etap 1/3
+          </p>
+          <div class="menu-buttons-list">
+            <button id="btn-pause-resume" class="cta-btn">WZNÓW</button>
+            <button id="btn-pause-tree" class="sub-btn highlight-btn">DRZEWKO</button>
+            <button id="btn-pause-dog" class="sub-btn highlight-btn hidden">MODYFIKACJA PSA: KIEŁ</button>
+            <button id="btn-pause-menu" class="sub-btn">WYJDŹ DO MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skill Tree Modal (Drzewko umiejętności) -->
+      <div id="tree-overlay" class="modal-overlay hidden">
+        <div class="tree-card">
+          <div class="tree-top-bar">
+            <div>
+              <div class="game-badge">ROZWÓJ UMIEJĘTNOŚCI</div>
+              <h2 class="tree-main-title">DRZEWKO UMIEJĘTNOŚCI</h2>
+            </div>
+            <div class="tree-xp-box">
+              XP DRZEWKA: <strong id="tree-modal-xp">0</strong>
+            </div>
+          </div>
+          <div id="tree-branches-grid" class="tree-branches-grid"></div>
+          <div class="tree-footer">
+            <button id="btn-tree-back" class="cta-btn">POWRÓT</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shop Modal (Sklepik w menu) -->
+      <div id="shop-overlay" class="modal-overlay hidden">
+        <div class="tree-card shop-card">
+          <div class="tree-top-bar">
+            <div>
+              <div class="game-badge">WYGLĄDY PROCEDURALNE • ZERO STATYSTYK</div>
+              <h2 class="tree-main-title">SKLEPIK STAREGO PORTU</h2>
+              <p class="shop-note">Wybrany wygląd wchodzi od następnej rundy i zapisuje się na stałe.</p>
+            </div>
+            <div class="tree-xp-box coin-box">
+              MONETY: <strong id="shop-modal-coins">0</strong>
+            </div>
+          </div>
+
+          <div class="shop-columns">
+            <div class="shop-column">
+              <h3 class="shop-col-title">POSTAĆ (PO JEDNEJ NA RAZ)</h3>
+              <div id="shop-player-list" class="shop-items-list"></div>
+            </div>
+            <div class="shop-column">
+              <h3 class="shop-col-title">ZOMBIE (CAŁA HORDA)</h3>
+              <div id="shop-zombie-list" class="shop-items-list"></div>
+            </div>
+          </div>
+
+          <div class="tree-footer">
+            <button id="btn-shop-back" class="cta-btn">POWRÓT DO MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cinematic Video Intro Overlay (/movies/video01.mp4, skippable) -->
+      <div id="intro-overlay" class="intro-overlay hidden">
+        <video
+          id="intro-video"
+          class="intro-video"
+          src="/movies/video01.mp4"
+          muted
+          playsinline
+          preload="auto"
+        ></video>
+        <div class="intro-letterbox bottom">
+          <span class="intro-skip-hint">Naciśnij dowolny klawisz, aby pominąć</span>
+        </div>
+      </div>
+
+      <!-- Credits Modal (Twórcy) -->
+      <div id="credits-overlay" class="modal-overlay hidden">
+        <div class="start-card credits-card">
+          <div class="game-badge">TWÓRCY</div>
+          <h1 class="game-title">DEAD LIGHT<span>: RZEŹ</span></h1>
+          <div class="credits-list">
+            <div class="credits-row">
+              <span class="credits-label">Gra:</span>
+              <span class="credits-val">Dead Net Labs</span>
+            </div>
+            <div class="credits-row">
+              <span class="credits-label">Narzędzia:</span>
+              <span class="credits-val">Cursor, Grok, Gemini</span>
+            </div>
+          </div>
+          <p class="credits-signature">„DEAD LIGHT: RZEŹ — Dead Net Labs”</p>
+          <button id="btn-credits-back" class="cta-btn">POWRÓT DO MENU</button>
+        </div>
+      </div>
+
+      <!-- 2-Player Hot-Seat Handoff Modal ("Teraz Gracz 2") -->
+      <div id="p2-handoff-overlay" class="modal-overlay hidden">
+        <div class="start-card compact-modal-card">
+          <div class="game-badge">POJEDYNEK HOT-SEAT</div>
+          <h1 class="game-title">TERAZ <span>GRACZ 2</span></h1>
+          <p class="game-subtitle" id="p2-handoff-stats">
+            Gracz 1 zakończył rundę. Teraz Gracz 2 rozgrywa tę samą rundę trzech etapów i limit 2:00 od zera!
+          </p>
+          <button id="btn-start-p2" class="cta-btn">ROZPOCZNIJ RUNDĘ GRACZA 2</button>
+        </div>
+      </div>
+
+      <!-- End of Round / Duel Result Modal -->
+      <div id="gameover-overlay" class="modal-overlay hidden">
+        <div class="start-card gameover-card compact-modal-card">
+          <div class="game-badge" id="gameover-badge">KONIEC RUNDY</div>
+          <h1 class="game-title" id="gameover-title">KONIEC <span>RZEZI</span></h1>
+          <p class="game-subtitle" id="gameover-stats">Czas: 0:00 • Etap: 1/3 • Zabójstwa: 0</p>
+          <div id="duel-scoreboard" class="duel-scoreboard hidden"></div>
+          <div class="menu-sub-row">
+            <button id="restart-btn" class="cta-btn">ZAGRAJ PONOWNIE</button>
+            <button id="menu-return-btn" class="sub-btn">POWRÓT DO MENU</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
